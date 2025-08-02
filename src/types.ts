@@ -16,7 +16,7 @@ export interface Cluster {
 
 export interface Transaction {
   id: string;
-  type: 'trade' | 'lease' | 'purchase';
+  type: 'trade' | 'lease' | 'purchase' | 'blockchain_transfer';
   timestamp: string;
   buyerId?: string;
   sellerId?: string;
@@ -25,6 +25,8 @@ export interface Transaction {
   kWh: number;
   amountZMW: number;
   carbonSaved: number;
+  blockchainTxHash?: string;
+  paymentMethod?: 'blockchain' | 'mobile_money' | 'hybrid';
 }
 
 export interface USSDRequest {

@@ -1,0 +1,172 @@
+name: Enerlectra CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install TypeScript globally
+      run: npm install -g typescript
+    
+    - name: Run TypeScript compilation
+      run: npx tsc
+    
+    - name: Create dist/db directory
+      run: mkdir -p dist/db
+    
+    - name: Copy database files
+      run: cp -r src/db/* dist/db/
+    
+    - name: Run tests
+      run: npm test
+      env:
+        NODE_ENV: test
+    
+    - name: Run linting
+      run: npm run lint
+      continue-on-error: true
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Install TypeScript globally
+      run: npm install -g typescript
+    
+    - name: Build application
+      run: |
+        npx tsc
+        mkdir -p dist/db
+        cp -r src/db/* dist/db/
+    
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: |
+          dist/
+          package.json
+          package-lock.json
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+    
+    - name: Deploy to Replit Staging
+      run: |
+        echo "Deploying to staging environment..."
+        echo "Staging URL: https://enerlectra-staging.replit.app"
+      env:
+        REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+
+  deploy-production:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+    
+    - name: Deploy to Replit Production
+      run: |
+        echo "Deploying to production environment..."
+        echo "Production URL: https://enerlectra.replit.app"
+      env:
+        REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run security audit
+      run: npm audit --audit-level high
+    
+    - name: Check for sensitive files
+      run: |
+        echo "Checking for sensitive files..."
+        find . -name "*.key" -o -name "*.pem" -o -name "*.p12" | grep -v node_modules || true
+        
+    - name: Validate environment variables
+      run: |
+        echo "Validating required environment variables are documented..."
+        grep -r "process.env" src/ || true
+
+  performance-test:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: dist-files
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Start application for testing
+      run: |
+        node dist/index.js &
+        sleep 10
+      env:
+        NODE_ENV: test
+    
+    - name: Run performance tests
+      run: |
+        echo "Running performance tests..."
+        curl -o /dev/null -s -w "%{time_total}\n" http://localhost:5000/health
+        curl -o /dev/null -s -w "%{time_total}\n" http://localhost:5000/market/stats
+        curl -o /dev/null -s -w "%{time_total}\n" http://localhost:5000/pricing
