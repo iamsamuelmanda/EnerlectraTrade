@@ -10,6 +10,14 @@ import carbonRoutes from './routes/carbon';
 import ussdRoutes from './routes/ussd';
 import clusterRoutes from './routes/cluster';
 import transactionRoutes from './routes/transactions';
+import marketRoutes from './routes/market';
+import userRoutes from './routes/users';
+import pricingRoutes from './routes/pricing';
+import bulkRoutes from './routes/bulk';
+import scheduleRoutes from './routes/schedule';
+import monitoringRoutes from './routes/monitoring';
+import mobileMoneyRoutes from './routes/mobilemoney';
+import alertRoutes from './routes/alerts';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -56,12 +64,20 @@ app.get('/', (req, res) => {
         carbon: 'GET /carbon/:userId - Get carbon footprint data',
         ussd: 'POST /ussd - USSD mobile interface',
         clusters: 'GET /cluster - Get all clusters, GET /cluster/:id - Get specific cluster',
-        transactions: 'GET /transactions/:userId - Get user transaction history'
+        transactions: 'GET /transactions/:userId - Get user transaction history',
+        market: 'GET /market/stats - Platform market statistics',
+        users: 'POST /users/register - Register new user, GET /users/:userId - Get user profile',
+        pricing: 'GET /pricing - Current market rates and pricing',
+        bulk: 'POST /trade/bulk/trade - Execute multiple trades, POST /trade/bulk/purchase - Bulk purchases',
+        schedule: 'POST /schedule/trade - Schedule future trade, GET /schedule/:userId - User scheduled transactions',
+        monitoring: 'GET /monitoring/clusters - Real-time cluster monitoring',
+        mobilemoney: 'POST /mobilemoney/ussd - Mobile money USSD interface',
+        alerts: 'POST /alerts/subscribe - Subscribe to price alerts, POST /alerts/ussd - Alert management via USSD'
       },
       businessLogic: {
         energyRate: '1 kWh = 1.2 ZMW',
         carbonSavings: '0.8 kg CO2 saved per kWh traded',
-        features: ['Energy trading', 'Cluster leasing', 'Carbon tracking', 'USSD access']
+        features: ['Energy trading', 'Cluster leasing', 'Carbon tracking', 'USSD access', 'Mobile money integration', 'Price alerts', 'Bulk operations', 'Energy scheduling', 'Real-time monitoring']
       }
     }
   };
@@ -76,6 +92,14 @@ app.use('/carbon', carbonRoutes);
 app.use('/ussd', ussdRoutes);
 app.use('/cluster', clusterRoutes);
 app.use('/transactions', transactionRoutes);
+app.use('/market', marketRoutes);
+app.use('/users', userRoutes);
+app.use('/pricing', pricingRoutes);
+app.use('/trade/bulk', bulkRoutes);
+app.use('/schedule', scheduleRoutes);
+app.use('/monitoring', monitoringRoutes);
+app.use('/mobilemoney', mobileMoneyRoutes);
+app.use('/alerts', alertRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
