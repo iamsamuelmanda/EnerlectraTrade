@@ -12,6 +12,7 @@ const lease_1 = __importDefault(require("./routes/lease"));
 const carbon_1 = __importDefault(require("./routes/carbon"));
 const ussd_1 = __importDefault(require("./routes/ussd"));
 const cluster_1 = __importDefault(require("./routes/cluster"));
+const clusters_1 = __importDefault(require("./routes/clusters"));
 const transactions_1 = __importDefault(require("./routes/transactions"));
 const ai_1 = __importDefault(require("./routes/ai"));
 const blockchain_1 = __importDefault(require("./routes/blockchain"));
@@ -90,6 +91,7 @@ app.use('/lease', lease_1.default);
 app.use('/carbon', carbon_1.default);
 app.use('/ussd', ussd_1.default);
 app.use('/cluster', cluster_1.default);
+app.use('/clusters', clusters_1.default); // New Innerlectra cluster management
 app.use('/transactions', transactions_1.default);
 app.use('/market', market_1.default);
 app.use('/users', users_1.default);

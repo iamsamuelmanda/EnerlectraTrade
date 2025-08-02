@@ -1,0 +1,93 @@
+Here's your refined cluster-focused Replit prompt:
+
+```
+Build Innerlectra, a peer-to-peer energy trading platform in TypeScript with Node.js and MongoDB, focused on energy clusters as the core organizational unit.
+
+## CLUSTER ARCHITECTURE:
+
+### Cluster Structure:
+- **Micro-clusters**: 10-25 households sharing 1 solar installation
+- **Neighborhood clusters**: 50-100 prosumers with distributed solar panels/inverters
+- **Industrial clusters**: 1-2 independent power producers (small solar farms, co-ops, mining operations)
+- **Supply clusters**: 2-3 solar equipment suppliers offering bulk pricing
+
+### Cluster Economics Model:
+```typescript
+interface EnergyCluster {
+  id: string;
+  name: string;
+  type: 'micro' | 'neighborhood' | 'industrial' | 'supply';
+  location: { region: string; gps: [number, number] };
+  members: ClusterMember[];
+  sharedAssets: SharedAsset[];
+  pooledFunds: number; // kwacha
+  energyCapacity: number; // kWh
+  governanceRules: GovernanceConfig;
+  tradingRules: TradingConfig;
+}
+
+interface SharedAsset {
+  assetType: 'solar_panel' | 'inverter' | 'battery' | 'mini_grid';
+  cost: number; // 22,000-45,000 kwacha range
+  ownership: { memberId: string; sharePercentage: number }[];
+  installationDate: Date;
+  maintenanceSchedule: MaintenanceEvent[];
+}
+```
+
+### Cluster Features:
+- **Pooled Purchasing**: Members contribute 2,000-5,000 kwacha each to buy shared solar equipment
+- **Energy Sharing**: Automatic distribution of generated energy among cluster members
+- **Democratic Governance**: Voting on equipment purchases, maintenance, new members
+- **Tiered Benefits**: Contribution-based energy allocation and profit sharing
+- **Cross-Cluster Trading**: Surplus energy sales to other clusters
+- **Equipment Financing**: Group-based microfinance for solar gear
+
+### Cluster Management System:
+```typescript
+class ClusterService {
+  async createCluster(clusterData: ClusterConfig): Promise<Cluster>;
+  async joinCluster(userId: string, clusterId: string, contribution: number): Promise<Membership>;
+  async initiateGroupPurchase(clusterId: string, equipment: EquipmentRequest): Promise<Purchase>;
+  async distributeEnergy(clusterId: string, totalGenerated: number): Promise<Distribution>;
+  async voteOnProposal(clusterId: string, proposalId: string, vote: boolean): Promise<VoteResult>;
+  async calculateMemberReturns(clusterId: string): Promise<MemberReturns[]>;
+}
+```
+
+### Smart Cluster Features:
+- **Auto-balancing**: AI distributes energy based on member usage patterns
+- **Predictive Maintenance**: Alert cluster when equipment needs service
+- **Dynamic Pricing**: Cluster-to-cluster energy prices based on supply/demand
+- **Reputation System**: Track reliable clusters for inter-cluster trading
+- **Expansion Planning**: AI recommends optimal times for capacity increases
+
+### UI for Cluster Management:
+- **Cluster Dashboard**: Real-time energy flow, member contributions, shared assets
+- **Member Directory**: Contact other cluster members, view contribution history
+- **Governance Panel**: Active proposals, voting interface, decision history
+- **Equipment Monitor**: Solar panel performance, battery levels, maintenance alerts
+- **Trading Hub**: Inter-cluster marketplace, price negotiations, trade execution
+
+### Cluster-Specific Gamification:
+- **Cluster Badges**: "Power Pioneers" (first cluster in region), "Green Giants" (highest renewable %)
+- **Member Ranks**: "Energy Champion" (top contributor), "Solar Sage" (best efficiency)
+- **Cluster Competitions**: Monthly challenges between clusters for energy savings
+- **Community Goals**: Unlock group rewards when cluster hits sustainability targets
+
+### Financial Integration for Clusters:
+- **Group Savings**: Cluster emergency fund for equipment repairs
+- **Bulk Discounts**: Negotiate better rates with suppliers as a group
+- **Revenue Sharing**: Distribute profits from energy sales proportionally
+- **Credit Building**: Cluster payment history improves member creditworthiness
+
+### Regional Adaptation:
+- **Kabwe Clusters**: University partnerships, student housing focus
+- **Lusaka Clusters**: Urban apartment complexes, business districts
+- **Rural Clusters**: Village-level micro-grids, agricultural cooperatives
+- **Mining Clusters**: Copperbelt industrial energy sharing
+
+Make clusters feel like energy cooperatives where everyone wins together. Include cluster analytics, member communication tools, and automated governance features. The platform should scale from a few test clusters in Kabwe to thousands across Zambia and beyond.
+```
+
+This refined prompt focuses entirely on the cluster model as your core innovation - turning energy access into a community-driven, financially sustainable system! 🚀⚡
