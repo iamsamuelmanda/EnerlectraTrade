@@ -168,3 +168,45 @@ The architecture prioritizes simplicity and accessibility, particularly for user
 - **Documentation**: Complete API documentation and GitHub templates
 
 The enhanced architecture maintains the original focus on African energy access while adding enterprise-grade features for scalability, security, and user experience.
+
+## Innerlectra Cluster Architecture Evolution (Added August 2025)
+
+### Community-Focused Energy Cooperatives
+The platform has evolved to include comprehensive cluster-based energy cooperatives, transforming individual energy trading into community-driven sustainability:
+
+#### Cluster Types and Structure
+- **Micro-clusters**: 10-25 households sharing 1 solar installation
+- **Neighborhood clusters**: 50-100 prosumers with distributed solar panels/inverters  
+- **Industrial clusters**: 1-2 independent power producers (small solar farms, co-ops, mining operations)
+- **Supply clusters**: 2-3 solar equipment suppliers offering bulk pricing
+
+#### Cluster Economics Model
+- **Pooled Purchasing**: Members contribute 2,000-5,000 ZMW each for shared solar equipment
+- **Democratic Governance**: Voting system for equipment purchases, maintenance, new members
+- **Energy Sharing**: Automatic distribution based on contribution and usage patterns
+- **Cross-Cluster Trading**: Surplus energy sales between cooperatives
+- **Shared Asset Management**: Equipment cost range 22,000-45,000 ZMW with proportional ownership
+
+#### Advanced Cluster Features
+- **AI-Powered Distribution**: Auto-balancing energy based on member usage patterns
+- **Predictive Maintenance**: Equipment health monitoring and service alerts
+- **Dynamic Pricing**: Cluster-to-cluster energy prices based on supply/demand
+- **Reputation System**: Inter-cluster trading reliability scoring
+- **Regional Specialization**: Kabwe (university partnerships), Lusaka (urban complexes), Rural (village micro-grids), Copperbelt (industrial sharing)
+
+#### Cluster Management API (15+ New Endpoints)
+- **Cluster Creation**: `/clusters/create` - Form new energy cooperatives
+- **Membership Management**: `/clusters/join` - Join existing clusters with contribution-based shares  
+- **Governance System**: `/clusters/:id/vote` - Democratic decision making on proposals
+- **Asset Management**: `/clusters/:id/assets` - Shared equipment tracking and maintenance
+- **Energy Distribution**: `/clusters/:id/energy/distribute` - Automated energy allocation
+- **Financial Analytics**: `/clusters/:id/returns` - Member return on investment calculations
+- **Dashboard Interface**: `/clusters/:id/dashboard` - Real-time cluster performance metrics
+
+#### Gamification and Community Building
+- **Cluster Badges**: "Power Pioneers" (first in region), "Green Giants" (highest renewable %)
+- **Member Ranks**: "Energy Champion" (top contributor), "Solar Sage" (best efficiency)
+- **Community Goals**: Unlock group rewards for sustainability targets
+- **Cluster Competitions**: Monthly energy savings challenges between cooperatives
+
+The cluster architecture transforms Enerlectra from individual energy trading into a comprehensive community energy cooperative platform, maintaining all existing functionality while adding powerful collective action capabilities for sustainable energy access across African communities.

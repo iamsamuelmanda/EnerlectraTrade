@@ -9,6 +9,7 @@ import leaseRoutes from './routes/lease';
 import carbonRoutes from './routes/carbon';
 import ussdRoutes from './routes/ussd';
 import clusterRoutes from './routes/cluster';
+import clustersRoutes from './routes/clusters';
 import transactionRoutes from './routes/transactions';
 import aiRoutes from './routes/ai';
 import blockchainRoutes from './routes/blockchain';
@@ -93,6 +94,7 @@ app.use('/lease', leaseRoutes);
 app.use('/carbon', carbonRoutes);
 app.use('/ussd', ussdRoutes);
 app.use('/cluster', clusterRoutes);
+app.use('/clusters', clustersRoutes); // New Innerlectra cluster management
 app.use('/transactions', transactionRoutes);
 app.use('/market', marketRoutes);
 app.use('/users', userRoutes);
