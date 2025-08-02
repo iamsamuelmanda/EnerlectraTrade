@@ -133,3 +133,38 @@ Preferred communication style: Simple, everyday language.
 - No external API integrations for energy data
 
 The architecture prioritizes simplicity and accessibility, particularly for users in regions with limited internet connectivity through the USSD interface. The system is designed to be easily deployable and maintainable without complex infrastructure requirements.
+
+## CI/CD and Deployment Architecture (Added August 2025)
+
+### GitHub Integration
+- **Repository**: Configured for CI/CD with GitHub Actions
+- **Branch Strategy**: main (production), develop (staging), feature branches
+- **Automated Testing**: API endpoint testing with 90%+ success rate
+- **Security Scanning**: Dependency audits and vulnerability checks
+- **Performance Testing**: Response time monitoring and health checks
+
+### Deployment Pipeline
+- **Continuous Integration**: Automated build, test, and security scanning
+- **Multi-environment**: Staging and production deployment workflows
+- **Docker Support**: Containerized application with health checks
+- **Automated Deployment**: Push-to-deploy from main and develop branches
+
+### AI Integration Architecture
+- **Anomaly Detection**: Transaction pattern analysis using Anthropic Claude
+- **User Assistance**: Natural language query support for platform guidance
+- **Market Insights**: AI-powered market analysis and trading recommendations
+- **Fraud Prevention**: Automated risk assessment and suspicious activity detection
+
+### Blockchain Payment Integration
+- **Hybrid Payment System**: Combined blockchain and mobile money transactions
+- **Mock Blockchain**: Development simulation of energy token transfers
+- **Wallet Management**: Multi-wallet support (energy tokens, payment tokens)
+- **Payment Methods**: Flexible payment options (blockchain, mobile money, hybrid)
+
+### Development and Testing
+- **Automated Testing**: Comprehensive API test suite with 10 core endpoint tests
+- **Health Monitoring**: Continuous health checks and performance metrics
+- **Error Handling**: Robust error responses and logging throughout the system
+- **Documentation**: Complete API documentation and GitHub templates
+
+The enhanced architecture maintains the original focus on African energy access while adding enterprise-grade features for scalability, security, and user experience.

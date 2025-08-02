@@ -10,6 +10,8 @@ import carbonRoutes from './routes/carbon';
 import ussdRoutes from './routes/ussd';
 import clusterRoutes from './routes/cluster';
 import transactionRoutes from './routes/transactions';
+import aiRoutes from './routes/ai';
+import blockchainRoutes from './routes/blockchain';
 import marketRoutes from './routes/market';
 import userRoutes from './routes/users';
 import pricingRoutes from './routes/pricing';
@@ -100,6 +102,8 @@ app.use('/schedule', scheduleRoutes);
 app.use('/monitoring', monitoringRoutes);
 app.use('/mobilemoney', mobileMoneyRoutes);
 app.use('/alerts', alertRoutes);
+app.use('/ai', aiRoutes);
+app.use('/blockchain', blockchainRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

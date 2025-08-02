@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  enerlectra-api:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./src/db:/app/src/db
+      - ./dist/db:/app/dist/db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  enerlectra-api-staging:
+    build: .
+    ports:
+      - "5001:5000"
+    environment:
+      - NODE_ENV=staging
+      - PORT=5000
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./src/db:/app/src/db
+      - ./dist/db:/app/dist/db
+    restart: unless-stopped
+    profiles:
+      - staging
+
+networks:
+  default:
+    name: enerlectra-network

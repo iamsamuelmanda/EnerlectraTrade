@@ -13,6 +13,8 @@ const carbon_1 = __importDefault(require("./routes/carbon"));
 const ussd_1 = __importDefault(require("./routes/ussd"));
 const cluster_1 = __importDefault(require("./routes/cluster"));
 const transactions_1 = __importDefault(require("./routes/transactions"));
+const ai_1 = __importDefault(require("./routes/ai"));
+const blockchain_1 = __importDefault(require("./routes/blockchain"));
 const market_1 = __importDefault(require("./routes/market"));
 const users_1 = __importDefault(require("./routes/users"));
 const pricing_1 = __importDefault(require("./routes/pricing"));
@@ -97,6 +99,8 @@ app.use('/schedule', schedule_1.default);
 app.use('/monitoring', monitoring_1.default);
 app.use('/mobilemoney', mobilemoney_1.default);
 app.use('/alerts', alerts_1.default);
+app.use('/ai', ai_1.default);
+app.use('/blockchain', blockchain_1.default);
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error('Unhandled error:', err);
