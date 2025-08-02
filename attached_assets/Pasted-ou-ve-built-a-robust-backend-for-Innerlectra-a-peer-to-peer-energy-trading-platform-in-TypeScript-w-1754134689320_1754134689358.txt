@@ -1,0 +1,12 @@
+ou’ve built a robust backend for Innerlectra, a peer-to-peer energy trading platform in TypeScript with Node.js and MongoDB, featuring clusters (microgrids) with 50–100 prosumers, 1–2 independent power producers (IPPs), and 2–3 solar equipment suppliers, plus mobile money (Airtel Money, MTN, Zoona) and Ethereum smart contract payments. Now, focus on adding a frontend in TypeScript using React and Tailwind CSS. Build a vibrant, mobile-friendly UI for these features:
+
+Dashboard: Display real-time energy stats (kWh produced, consumed, traded) with interactive Chart.js bar/pie charts and a Leaflet.js map showing cluster locations (GPS-based or manual input for regions like Kabwe, Lusaka, or Mansa). Include a dark/light mode toggle.
+Cluster Hub: Show cluster details (prosumers, IPPs, suppliers) with a “Join Cluster” button and a list of nearby clusters, adaptable to any Zambian province or beyond.
+Trading Interface: Create a sleek section for energy trades, with a form to propose trades and view offers, tied to mobile money APIs and Ethereum via Web3.js (support wallet connections).
+Chat Feature: Add real-time chat for prosumers to negotiate trades or share tips, using Socket.io for live updates.
+Gamification: Include a leaderboard per cluster and animated badges (e.g., Solar Star) for top traders or energy savers.
+Microfinance: Add a pay-as-you-go section for solar gear (panels, inverters, batteries), with a form for micro-loan applications via APIs (e.g., M-Pesa or Zambian equivalents).
+Accessibility: Support English, Bemba, Tonga, and Nyanja with a language switcher. Use Service Workers for offline caching to handle 2G/3G networks.
+Notifications: Enable Firebase push notifications for surplus energy alerts or supplier deals.
+
+Optimize for low-end devices, ensure responsiveness, and use Tailwind CSS for a modern, intuitive look. Integrate tightly with the backend for real-time data, test with Jest, and structure the codebase for GitHub integration with a README and GitHub Actions setup for CI/CD.
