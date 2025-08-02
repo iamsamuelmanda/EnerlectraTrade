@@ -1,0 +1,23 @@
+[
+  {
+    "id": "cluster1",
+    "location": "Lusaka Solar Farm",
+    "capacityKWh": 200,
+    "availableKWh": 180,
+    "pricePerKWh": 1.0
+  },
+  {
+    "id": "cluster2",
+    "location": "Kitwe Wind Farm",
+    "capacityKWh": 300,
+    "availableKWh": 250,
+    "pricePerKWh": 1.1
+  },
+  {
+    "id": "cluster3",
+    "location": "Livingstone Hydro",
+    "capacityKWh": 500,
+    "availableKWh": 400,
+    "pricePerKWh": 0.9
+  }
+]

@@ -1,0 +1,29 @@
+modules = ["nodejs-20"]
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Enerlectra Backend"
+
+[[workflows.workflow]]
+name = "Enerlectra Backend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install && npm install -g typescript && npm install express cors @types/express @types/cors @types/node && npx tsc && mkdir -p dist/db && cp -r src/db/* dist/db/ && node dist/index.js"
+waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
