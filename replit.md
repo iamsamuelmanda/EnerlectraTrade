@@ -27,12 +27,15 @@ Preferred communication style: Simple, everyday language.
 - Energy cluster leasing from renewable energy sources
 - Fixed exchange rate of 1 kWh = 1.2 ZMW
 - Balance validation before transactions
+- Bulk trading operations for multiple transactions
+- Scheduled energy transactions for future execution
 
 ### USSD Integration
 - Menu-driven USSD interface for feature phone users
 - Session management for multi-level interactions
 - User registration and management via phone numbers
 - Complete functionality accessible without internet
+- Enhanced mobile money integration within USSD
 
 ### Carbon Footprint Tracking
 - Automatic carbon savings calculation (0.8kg CO2 per kWh)
@@ -43,6 +46,60 @@ Preferred communication style: Simple, everyday language.
 - Dual balance system (ZMW currency and kWh energy)
 - Real-time balance updates
 - Transaction history tracking
+
+### Advanced Features (Added December 2024)
+
+#### 1. Market Dashboard & Analytics
+- Real-time platform statistics and market health indicators
+- User economy metrics and energy market analysis
+- Transaction volume tracking and market trends
+- System utilization rates and liquidity analysis
+
+#### 2. User Registration System
+- Zambian phone number validation (+260XXXXXXXXX format)
+- Automated user creation with starting balance
+- User profile management and lookup functionality
+- Admin view for user management and statistics
+
+#### 3. Dynamic Pricing Engine
+- Real-time market rate calculations based on supply/demand
+- Time-of-day pricing (peak/off-peak hours)
+- Cluster-specific pricing with utilization adjustments
+- Historical price tracking and trend analysis
+- Price volatility monitoring and recommendations
+
+#### 4. Bulk Operations
+- Multiple energy trades in single transaction (up to 50 trades)
+- Bulk energy purchases from clusters (up to 30 purchases)
+- Comprehensive validation and error handling
+- Individual transaction result tracking
+
+#### 5. Energy Scheduling System
+- Future energy trade scheduling (up to 30 days)
+- Automated execution at scheduled times
+- Price limits and maximum cost protection
+- Schedule management and cancellation options
+
+#### 6. Real-time Cluster Monitoring
+- Health status monitoring with scoring system
+- Utilization tracking and capacity management
+- Performance metrics and revenue analysis
+- Predictive analytics for capacity planning
+- Alert generation for critical conditions
+
+#### 7. Mobile Money Integration
+- Complete mobile wallet functionality via USSD
+- Deposit, withdrawal, and transfer operations
+- Transaction limits and security validation
+- Money transfer between users
+- Transaction history and reference tracking
+
+#### 8. Price Alert System
+- Customizable price alerts (drop/rise thresholds)
+- Supply and demand condition monitoring
+- USSD interface for alert management
+- SMS notification simulation
+- Alert history and subscription management
 
 ## Security and Validation
 - Input validation for all API endpoints
