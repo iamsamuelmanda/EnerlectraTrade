@@ -1,5 +1,16 @@
 import { Router, Request, Response } from 'express';
-import { readJsonFile, writeJsonFile, findUserByPhone, updateUserBalance, generateId } from '../utils';
+import { 
+  readJsonFile, 
+  writeJsonFile, 
+  findUserByPhone, 
+  updateUserBalance, 
+  generateId 
+} from '../utils/common';
+import { 
+  initiateDeposit, 
+  initiateWithdrawal, 
+  verifyWebhookSignature 
+} from '../services/momoService';
 import { User, USSDRequest, USSDResponse, ApiResponse } from '../types';
 
 const router = Router();
@@ -17,7 +28,7 @@ interface MobileMoneyTransaction {
 }
 
 // POST /mobilemoney/ussd - Enhanced USSD with mobile money integration
-router.post('/ussd', (req: Request, res: Response) => {
+router.post('/ussd', async (req: Request, res: Response) => {
   try {
     const { text, phoneNumber }: USSDRequest = req.body;
 
@@ -79,7 +90,7 @@ router.post('/ussd', (req: Request, res: Response) => {
           case '3':
             // Account info
             ussdResponse = {
-              text: `END Account Information:\n\nName: ${user.name}\nPhone: ${user.phoneNumber}\nZMW Balance: ${user.balanceZMW.toFixed(2)}\nEnergy Balance: ${user.balanceKWh.toFixed(2)} kWh\n\nTotal Value: ${(user.balanceZMW + user.balanceKWh * 1.2).toFixed(2)} ZMW`,
+              text: `END Account Information:\n\nName: ${user.name}\nPhone: ${user.phoneNumber}\nZMW Balance: ${user.balanceZMW.toFixed(2)}\nEnergy Balance: ${user.balanceKWh.toFixed(2)} kWh\n\nTotal Value: ${(user.balanceZMW + user.balanceKWh * parseFloat(process.env.KWH_TO_ZMW_RATE || '1.2')).toFixed(2)} ZMW`,
               continueSession: false
             };
             break;
@@ -90,7 +101,8 @@ router.post('/ussd', (req: Request, res: Response) => {
             const userTransactions = transactions.filter(t => 
               t.buyerId === user!.id || t.userId === user!.id
             );
-            const totalCarbonSaved = userTransactions.reduce((total, t) => total + t.carbonSaved, 0);
+            const carbonPerKWh = parseFloat(process.env.CARBON_SAVINGS_PER_KWH || '0.8');
+            const totalCarbonSaved = userTransactions.reduce((total, t) => total + (t.kWh * carbonPerKWh), 0);
 
             ussdResponse = {
               text: `END Your Environmental Impact:\n\nCarbon Saved: ${totalCarbonSaved.toFixed(1)} kg CO2\nEnergy Traded: ${userTransactions.reduce((total, t) => total + t.kWh, 0).toFixed(1)} kWh\n\nYou're helping save Africa! 🌍`,
@@ -196,31 +208,42 @@ router.post('/ussd', (req: Request, res: Response) => {
                 continueSession: false
               };
             } else {
-              // Simulate mobile money deposit
-              updateUserBalance(users, user.id, depositAmount, 0);
-              
-              // Record mobile money transaction
-              const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
-              const mmTransaction: MobileMoneyTransaction = {
-                id: generateId(),
-                phoneNumber,
-                type: 'deposit',
-                amount: depositAmount,
-                currency: 'ZMW',
-                status: 'completed',
-                timestamp: new Date().toISOString(),
-                reference: `DEP${Date.now()}`,
-                description: 'Mobile money deposit to Enerlectra wallet'
-              };
-              
-              mmTransactions.push(mmTransaction);
-              writeJsonFile('mobile_money_transactions.json', mmTransactions);
-              writeJsonFile('users.json', users);
+              try {
+                const reference = `DEP${Date.now()}`;
+                // Initiate real MTN deposit
+                await initiateDeposit(phoneNumber, depositAmount, reference);
+                
+                // Update user balance immediately (will be confirmed via callback)
+                updateUserBalance(users, user.id, depositAmount, 0);
+                
+                // Record mobile money transaction
+                const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
+                const mmTransaction: MobileMoneyTransaction = {
+                  id: generateId(),
+                  phoneNumber,
+                  type: 'deposit',
+                  amount: depositAmount,
+                  currency: 'ZMW',
+                  status: 'pending',
+                  timestamp: new Date().toISOString(),
+                  reference: reference,
+                  description: 'Mobile money deposit to Enerlectra wallet'
+                };
+                
+                mmTransactions.push(mmTransaction);
+                writeJsonFile('mobile_money_transactions.json', mmTransactions);
+                writeJsonFile('users.json', users);
 
-              ussdResponse = {
-                text: `END Deposit Successful! ✅\n\nAmount: ${depositAmount} ZMW\nReference: ${mmTransaction.reference}\nNew Balance: ${user.balanceZMW.toFixed(2)} ZMW\n\nThank you for using Enerlectra!`,
-                continueSession: false
-              };
+                ussdResponse = {
+                  text: `END Deposit Initiated! ⏳\n\nAmount: ${depositAmount} ZMW\nReference: ${mmTransaction.reference}\n\nDial *151# to confirm payment. Balance will update after confirmation.`,
+                  continueSession: false
+                };
+              } catch (error: any) {
+                ussdResponse = {
+                  text: `END Deposit Failed: ${error.message}`,
+                  continueSession: false
+                };
+              }
             }
 
           } else if (menuLevels[1] === '2') {
@@ -233,31 +256,42 @@ router.post('/ussd', (req: Request, res: Response) => {
                 continueSession: false
               };
             } else {
-              // Process withdrawal
-              updateUserBalance(users, user.id, -withdrawAmount, 0);
-              
-              // Record mobile money transaction
-              const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
-              const mmTransaction: MobileMoneyTransaction = {
-                id: generateId(),
-                phoneNumber,
-                type: 'withdrawal',
-                amount: withdrawAmount,
-                currency: 'ZMW',
-                status: 'completed',
-                timestamp: new Date().toISOString(),
-                reference: `WTH${Date.now()}`,
-                description: 'Withdrawal from Enerlectra wallet'
-              };
-              
-              mmTransactions.push(mmTransaction);
-              writeJsonFile('mobile_money_transactions.json', mmTransactions);
-              writeJsonFile('users.json', users);
+              try {
+                const reference = `WTH${Date.now()}`;
+                // Initiate real MTN withdrawal
+                await initiateWithdrawal(phoneNumber, withdrawAmount, reference);
+                
+                // Update user balance immediately
+                updateUserBalance(users, user.id, -withdrawAmount, 0);
+                
+                // Record mobile money transaction
+                const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
+                const mmTransaction: MobileMoneyTransaction = {
+                  id: generateId(),
+                  phoneNumber,
+                  type: 'withdrawal',
+                  amount: withdrawAmount,
+                  currency: 'ZMW',
+                  status: 'pending',
+                  timestamp: new Date().toISOString(),
+                  reference: reference,
+                  description: 'Withdrawal from Enerlectra wallet'
+                };
+                
+                mmTransactions.push(mmTransaction);
+                writeJsonFile('mobile_money_transactions.json', mmTransactions);
+                writeJsonFile('users.json', users);
 
-              ussdResponse = {
-                text: `END Withdrawal Successful! ✅\n\nAmount: ${withdrawAmount} ZMW\nReference: ${mmTransaction.reference}\nNew Balance: ${user.balanceZMW.toFixed(2)} ZMW\n\nCash collection SMS sent.`,
-                continueSession: false
-              };
+                ussdResponse = {
+                  text: `END Withdrawal Initiated! ⏳\n\nAmount: ${withdrawAmount} ZMW\nReference: ${mmTransaction.reference}\n\nYou will receive funds shortly.`,
+                  continueSession: false
+                };
+              } catch (error: any) {
+                ussdResponse = {
+                  text: `END Withdrawal Failed: ${error.message}`,
+                  continueSession: false
+                };
+              }
             }
 
           } else if (menuLevels[1] === '4') {
@@ -390,57 +424,42 @@ router.post('/ussd', (req: Request, res: Response) => {
   }
 });
 
-// GET /mobilemoney/transactions/:phoneNumber - Get mobile money transaction history
-router.get('/transactions/:phoneNumber', (req: Request, res: Response) => {
+// MTN Callback Handler
+router.post('/callback', (req: Request, res: Response) => {
   try {
-    const { phoneNumber } = req.params;
-    const { limit, offset, type } = req.query;
+    const signature = req.headers['x-momo-signature'] as string;
+    const body = JSON.stringify(req.body);
     
-    const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
-    
-    let userTransactions = mmTransactions.filter(t => t.phoneNumber === phoneNumber);
-    
-    // Filter by type if specified
-    if (type && typeof type === 'string') {
-      userTransactions = userTransactions.filter(t => t.type === type);
+    if (!verifyWebhookSignature(body, signature)) {
+      return res.status(401).send('Unauthorized');
     }
     
-    // Sort by timestamp (newest first)
-    userTransactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const { reference, status, amount } = req.body;
     
-    // Apply pagination
-    const limitNum = limit ? parseInt(limit as string) : 20;
-    const offsetNum = offset ? parseInt(offset as string) : 0;
-    const paginatedTransactions = userTransactions.slice(offsetNum, offsetNum + limitNum);
+    // Update transaction status
+    const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
+    const transaction = mmTransactions.find(t => t.reference === reference);
     
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        phoneNumber,
-        transactions: paginatedTransactions,
-        pagination: {
-          total: userTransactions.length,
-          limit: limitNum,
-          offset: offsetNum,
-          hasMore: offsetNum + limitNum < userTransactions.length
-        },
-        summary: {
-          totalTransactions: userTransactions.length,
-          totalDeposits: userTransactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0),
-          totalWithdrawals: userTransactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + Math.abs(t.amount), 0),
-          totalPayments: userTransactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + Math.abs(t.amount), 0)
+    if (transaction) {
+      transaction.status = status === 'SUCCESSFUL' ? 'completed' : 'failed';
+      writeJsonFile('mobile_money_transactions.json', mmTransactions);
+      
+      // Update user balance if deposit completed
+      if (transaction.type === 'deposit' && status === 'SUCCESSFUL') {
+        const users = readJsonFile<User>('users.json');
+        const user = findUserByPhone(users, transaction.phoneNumber);
+        
+        if (user) {
+          updateUserBalance(users, user.id, amount, 0);
+          writeJsonFile('users.json', users);
         }
       }
-    };
+    }
     
-    res.json(response);
+    res.status(200).send('OK');
   } catch (error) {
-    console.error('Mobile money transactions error:', error);
-    const response: ApiResponse = {
-      success: false,
-      error: 'Internal server error'
-    };
-    res.status(500).json(response);
+    console.error('Callback error:', error);
+    res.status(500).send('Internal Server Error');
   }
 });
 

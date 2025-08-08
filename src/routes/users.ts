@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readJsonFile, writeJsonFile, generateId } from '../utils';
+import { readJsonFile, writeJsonFile, generateId } from '../utils/common';
 import { User, ApiResponse } from '../types';
 
 const router = Router();
