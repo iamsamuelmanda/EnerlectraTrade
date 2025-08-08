@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readJsonFile } from '../utils';
+import { readJsonFile } from '../utils/common';
 import { Cluster, ApiResponse } from '../types';
 
 const router = Router();
@@ -73,3 +73,4 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 export default router;
+

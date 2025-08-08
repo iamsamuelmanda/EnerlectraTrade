@@ -98,8 +98,6 @@ jobs:
       run: |
         echo "Deploying to staging environment..."
         echo "Staging URL: https://enerlectra-staging.replit.app"
-      env:
-        REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
 
   deploy-production:
     needs: build
@@ -118,9 +116,6 @@ jobs:
       run: |
         echo "Deploying to production environment..."
         echo "Production URL: https://enerlectra.replit.app"
-      env:
-        REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
   security-scan:
     runs-on: ubuntu-latest

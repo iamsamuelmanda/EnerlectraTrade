@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readJsonFile } from '../utils';
+import { readJsonFile } from '../utils/common';
 import { Cluster, Transaction, ApiResponse } from '../types';
 
 const router = Router();

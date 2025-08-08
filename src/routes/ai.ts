@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import { readJsonFile, writeJsonFile, generateId } from '../utils';
+import { readJsonFile, writeJsonFile, generateId } from '../utils/common';
 import { User, Transaction, Cluster, ApiResponse } from '../types';
 
 /*
@@ -108,13 +108,24 @@ router.post('/analyze-transaction', async (req: Request, res: Response) => {
     `;
 
     const aiResponse = await anthropic.messages.create({
-      // "claude-sonnet-4-20250514"
       model: DEFAULT_MODEL_STR,
       max_tokens: 1024,
       messages: [{ role: 'user', content: analysisPrompt }],
     });
 
-    const analysis = JSON.parse((aiResponse.content[0] as any).text);
+    // Safely parse JSON response
+    let analysis;
+    try {
+      analysis = JSON.parse((aiResponse.content[0] as any).text);
+    } catch (parseError) {
+      console.error('Failed to parse AI response', parseError);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Failed to parse AI analysis',
+        message: 'AI service returned unexpected format'
+      };
+      return res.status(500).json(response);
+    }
 
     if (analysis.hasAnomaly) {
       // Store anomaly detection result
@@ -165,6 +176,54 @@ router.post('/analyze-transaction', async (req: Request, res: Response) => {
   }
 });
 
+// POST /ai/resolve-anomaly - Resolve or reopen anomaly
+router.post('/resolve-anomaly', async (req: Request, res: Response) => {
+  try {
+    const { anomalyId, resolved } = req.body;
+    
+    if (typeof anomalyId === 'undefined' || typeof resolved === 'undefined') {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Anomaly ID and resolved status are required'
+      };
+      return res.status(400).json(response);
+    }
+
+    const anomalies = readJsonFile<AnomalyDetection>('anomaly_detections.json');
+    const anomalyIndex = anomalies.findIndex(a => a.id === anomalyId);
+
+    if (anomalyIndex === -1) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Anomaly not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    anomalies[anomalyIndex].resolved = resolved;
+    writeJsonFile('anomaly_detections.json', anomalies);
+
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        anomalyId,
+        resolved,
+        updatedAt: new Date().toISOString()
+      },
+      message: `Anomaly ${resolved ? 'resolved' : 'reopened'} successfully`
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Resolve anomaly error:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to update anomaly status'
+    };
+    res.status(500).json(response);
+  }
+});
+
 // POST /ai/user-assistance - AI-powered user assistance
 router.post('/user-assistance', async (req: Request, res: Response) => {
   try {
@@ -203,19 +262,19 @@ router.post('/user-assistance', async (req: Request, res: Response) => {
     
     User Context:
     - Name: ${user.name}
-    - Balance: ${user.balanceZMW} ZMW, ${user.balanceKWh} kWh
+    - Balance: ${user.balanceZMW.toFixed(2)} ZMW, ${user.balanceKWh.toFixed(2)} kWh
     - Recent Transactions: ${userTransactions.length}
-    - Total Carbon Saved: ${userTransactions.reduce((sum, t) => sum + (t.carbonSaved || 0), 0)} kg CO2
+    - Total Carbon Saved: ${userTransactions.reduce((sum, t) => sum + (t.carbonSaved || 0), 0).toFixed(1)} kg CO2
     
     Available Energy Clusters:
     ${clusters.map(c => 
-      `- ${c.location}: ${c.availableKWh} kWh available at ${c.pricePerKWh} ZMW/kWh`
+      `- ${c.location}: ${c.availableKWh.toFixed(1)} kWh available at ${c.pricePerKWh.toFixed(2)} ZMW/kWh`
     ).join('\n')}
     
     Platform Features:
-    - Energy trading (1 kWh = 1.2 ZMW base rate)
+    - Energy trading (1 kWh = ${process.env.KWH_TO_ZMW_RATE || '1.2'} ZMW base rate)
     - Energy cluster leasing
-    - Carbon footprint tracking (0.8kg CO2 saved per kWh)
+    - Carbon footprint tracking (${process.env.CARBON_SAVINGS_PER_KWH || '0.8'}kg CO2 saved per kWh)
     - USSD access for mobile phones
     - Mobile money integration
     - Bulk trading and scheduling
@@ -228,7 +287,6 @@ router.post('/user-assistance', async (req: Request, res: Response) => {
     `;
 
     const aiResponse = await anthropic.messages.create({
-      // "claude-sonnet-4-20250514"
       model: DEFAULT_MODEL_STR,
       max_tokens: 1024,
       messages: [{ role: 'user', content: assistancePrompt }],
@@ -304,7 +362,7 @@ router.get('/anomalies/:userId', (req: Request, res: Response) => {
   }
 });
 
-// POST /ai/market-insights - Generate AI-powered market insights
+// POST /ai/market-insights - Generate AI-powered market insights with forecasting
 router.post('/market-insights', async (req: Request, res: Response) => {
   try {
     const transactions = readJsonFile<Transaction>('transactions.json');
@@ -316,28 +374,53 @@ router.post('/market-insights', async (req: Request, res: Response) => {
       new Date(t.timestamp).getTime() > Date.now() - 24 * 60 * 60 * 1000
     );
 
+    const lastHourTransactions = transactions.filter(t => 
+      new Date(t.timestamp).getTime() > Date.now() - 60 * 60 * 1000
+    );
+
     const totalVolume24h = last24hTransactions.reduce((sum, t) => sum + t.amountZMW, 0);
     const totalEnergy24h = last24hTransactions.reduce((sum, t) => sum + t.kWh, 0);
     const averagePrice = totalEnergy24h > 0 ? totalVolume24h / totalEnergy24h : 1.2;
+
+    // Calculate price trend
+    const hourTotalVolume = lastHourTransactions.reduce((sum, t) => sum + t.amountZMW, 0);
+    const hourTotalEnergy = lastHourTransactions.reduce((sum, t) => sum + t.kWh, 0);
+    const hourAveragePrice = hourTotalEnergy > 0 ? hourTotalVolume / hourTotalEnergy : 0;
+    const priceChange = hourAveragePrice > 0 ? (averagePrice - hourAveragePrice) / hourAveragePrice : 0;
+
+    // Calculate cluster utilization
+    const averageUtilization = clusters.length > 0 
+      ? clusters.reduce((sum, c) => 
+          sum + ((c.capacityKWh - c.availableKWh) / c.capacityKWh * 100), 0
+        ) / clusters.length
+      : 0;
 
     const marketPrompt = `
     Analyze the current state of the Enerlectra energy trading market and provide insights:
     
     Market Data (Last 24 Hours):
     - Total Transactions: ${last24hTransactions.length}
-    - Total Volume: ${totalVolume24h} ZMW
-    - Total Energy Traded: ${totalEnergy24h} kWh
+    - Total Volume: ${totalVolume24h.toFixed(2)} ZMW
+    - Total Energy Traded: ${totalEnergy24h.toFixed(2)} kWh
     - Average Price: ${averagePrice.toFixed(2)} ZMW/kWh
+    - Price Trend: ${priceChange > 0 ? 'Rising' : priceChange < 0 ? 'Falling' : 'Stable'} 
+      (${Math.abs(priceChange * 100).toFixed(1)}% ${priceChange > 0 ? 'increase' : 'decrease'} in last hour)
     
     Energy Clusters:
     ${clusters.map(c => 
-      `- ${c.location}: ${c.availableKWh}/${c.capacityKWh} kWh (${((c.capacityKWh - c.availableKWh) / c.capacityKWh * 100).toFixed(1)}% utilized)`
+      `- ${c.location}: ${c.availableKWh.toFixed(1)}/${c.capacityKWh.toFixed(1)} kWh (${((c.capacityKWh - c.availableKWh) / c.capacityKWh * 100).toFixed(1)}% utilized)`
     ).join('\n')}
     
     User Economy:
     - Total Users: ${users.length}
-    - Total User Balance: ${users.reduce((sum, u) => sum + u.balanceZMW, 0)} ZMW
-    - Total User Energy: ${users.reduce((sum, u) => sum + u.balanceKWh, 0)} kWh
+    - Total User Balance: ${users.reduce((sum, u) => sum + u.balanceZMW, 0).toFixed(2)} ZMW
+    - Total User Energy: ${users.reduce((sum, u) => sum + u.balanceKWh, 0).toFixed(2)} kWh
+    - Average Cluster Utilization: ${averageUtilization.toFixed(1)}%
+    
+    Predict energy prices for the next 24 hours based on:
+    - Current utilization rate: ${averageUtilization.toFixed(1)}%
+    - Recent price trend: ${priceChange > 0 ? 'rising' : priceChange < 0 ? 'falling' : 'stable'}
+    - Time of day: ${new Date().getHours()}:00
     
     Provide insights in JSON format:
     {
@@ -347,18 +430,34 @@ router.post('/market-insights', async (req: Request, res: Response) => {
       "recommendations": ["recommendation1", "recommendation2", "recommendation3"],
       "riskFactors": ["risk1", "risk2"],
       "opportunities": ["opportunity1", "opportunity2"],
-      "summary": "Brief market summary for African energy traders"
+      "summary": "Brief market summary for African energy traders",
+      "priceForecast": [
+        {"hour": 0, "price": number},
+        {"hour": 1, "price": number},
+        // ... continue for all 24 hours
+      ]
     }
     `;
 
     const aiResponse = await anthropic.messages.create({
-      // "claude-sonnet-4-20250514"
       model: DEFAULT_MODEL_STR,
-      max_tokens: 1024,
+      max_tokens: 2048, // Increased for forecasting data
       messages: [{ role: 'user', content: marketPrompt }],
     });
 
-    const insights = JSON.parse((aiResponse.content[0] as any).text);
+    // Safely parse JSON response
+    let insights;
+    try {
+      insights = JSON.parse((aiResponse.content[0] as any).text);
+    } catch (parseError) {
+      console.error('Failed to parse market insights', parseError);
+      const response: ApiResponse = {
+        success: false,
+        error: 'Failed to parse market insights',
+        message: 'AI service returned unexpected format'
+      };
+      return res.status(500).json(response);
+    }
 
     const response: ApiResponse = {
       success: true,
@@ -369,11 +468,10 @@ router.post('/market-insights', async (req: Request, res: Response) => {
           volume24h: totalVolume24h,
           energy24h: totalEnergy24h,
           averagePrice24h: averagePrice,
+          priceChangeLastHour: priceChange,
           totalUsers: users.length,
           totalClusters: clusters.length,
-          averageUtilization: clusters.reduce((sum, c) => 
-            sum + ((c.capacityKWh - c.availableKWh) / c.capacityKWh * 100), 0
-          ) / clusters.length
+          averageUtilization
         },
         timestamp: new Date().toISOString()
       },

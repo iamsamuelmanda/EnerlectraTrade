@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readJsonFile, writeJsonFile, updateUserBalance, createTransaction, KWH_TO_ZMW_RATE } from '../utils';
+import { readJsonFile, writeJsonFile, updateUserBalance, createTransaction, KWH_TO_ZMW_RATE } from '../utils/common';
 import { User, Transaction, ApiResponse } from '../types';
 
 const router = Router();
@@ -103,3 +103,4 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 export default router;
+

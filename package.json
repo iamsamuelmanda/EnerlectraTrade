@@ -3,7 +3,17 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:blockchain\"",
+    "dev:backend": "nodemon --exec ts-node src/index.ts",
+    "dev:frontend": "cd client && npm run dev",
+    "dev:blockchain": "npx hardhat node",
+    "build": "tsc && cd client && npm run build",
+    "start": "node dist/index.js",
+    "blockchain:deploy": "npx hardhat run scripts/deploy.js --network localhost",
+    "blockchain:deploy:prod": "npx hardhat run scripts/deploy.js --network polygon",
+    "test": "npx hardhat test && cd client && npm run test",
+    "docker:dev": "docker-compose up --build",
+    "docker:prod": "docker-compose -f docker-compose.yml -f deploy/production.yml up --build"
   },
   "keywords": [],
   "author": "",
@@ -11,11 +21,29 @@
   "description": "",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@types/pg": "^8.15.5",
+    "axios": "^1.11.0",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "ethers": "^6.15.0",
+    "express": "^5.1.0",
+    "hardhat": "^2.26.1",
+    "helmet": "^8.1.0",
+    "pg": "^8.16.3",
+    "rate-limiter-flexible": "^7.2.0",
+    "sqlite3": "^5.1.7",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
-    "@types/node": "^24.1.0",
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
+    "@types/node": "^24.2.0",
+    "@types/sqlite3": "^3.1.11",
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }

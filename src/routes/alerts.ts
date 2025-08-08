@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { readJsonFile, writeJsonFile, findUserByPhone, generateId } from '../utils';
+import { readJsonFile, writeJsonFile, findUserByPhone, generateId } from '../utils/common';
 import { User, Cluster, Transaction, USSDRequest, USSDResponse, ApiResponse } from '../types';
 
 const router = Router();
