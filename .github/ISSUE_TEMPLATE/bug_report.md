@@ -1,9 +1,9 @@
 ---
 name: Bug report
-about: Create a report to help us improve Enerlectra
+about: Create a report to help us improve EnerlectraTrade
 title: '[BUG] '
-labels: bug
-assignees: ''
+labels: 'bug'
+assignees: 'iamsamuelmanda'
 ---
 
 **Describe the bug**
@@ -11,46 +11,22 @@ A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Make API call to '...'
-2. With parameters '....'
-3. See error
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**API Endpoint**
-- Endpoint: `POST /api/endpoint`
-- Request body:
-```json
-{
-  "example": "data"
-}
-```
-
-**Actual Response**
-```json
-{
-  "error": "response received"
-}
-```
-
-**Expected Response**
-```json
-{
-  "success": "expected response"
-}
-```
+**Screenshots**
+If applicable, add screenshots to help explain your problem.
 
 **Environment:**
+- OS: [e.g. Windows, Ubuntu, macOS]
+- Browser: [e.g. Chrome, Firefox, Safari]  
 - Node.js version: [e.g. 18.x]
-- OS: [e.g. Ubuntu 20.04]
-- Browser (if applicable): [e.g. Chrome 96]
+- EnerlectraTrade version: [e.g. 1.0.0]
 
 **Additional context**
 Add any other context about the problem here.
-
-**Logs**
-Include any relevant log output:
-```
-Log output here
-```

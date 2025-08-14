@@ -12,6 +12,6 @@
     "resolveJsonModule": true,
     "moduleResolution": "node"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "deploy-contracts.js"],
   "exclude": ["node_modules", "dist"]
 }

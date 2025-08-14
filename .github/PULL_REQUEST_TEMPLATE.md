@@ -1,50 +1,38 @@
-# Pull Request
+## 📋 Description
+Brief description of the changes and which issue is fixed.
 
-## Description
-Brief description of changes made.
+Fixes # (issue)
 
-## Type of Change
-- [ ] Bug fix (non-breaking change that fixes an issue)
-- [ ] New feature (non-breaking change that adds functionality)
+## 🔧 Type of change
+- [ ] Bug fix (non-breaking change which fixes an issue)
+- [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
+- [ ] This change requires a documentation update
 
-## Changes Made
-- [ ] Added new API endpoints
-- [ ] Updated existing functionality
-- [ ] Fixed bugs or issues
-- [ ] Updated documentation
-- [ ] Added tests
+## 🧪 How Has This Been Tested?
+- [ ] Unit tests
+- [ ] Integration tests
+- [ ] Manual testing
 
-## API Endpoints Modified/Added
-List any new or modified endpoints:
-- `GET /new-endpoint` - Description
-- `POST /updated-endpoint` - Description
+**Test Configuration**:
+- Node.js version:
+- Operating System:
+- Browser (if applicable):
 
-## Testing
-- [ ] All existing tests pass
-- [ ] New tests added for new functionality
-- [ ] Manual testing completed
-- [ ] API endpoints tested with curl/Postman
+## ✅ Checklist:
+- [ ] My code follows the style guidelines of this project
+- [ ] I have performed a self-review of my own code
+- [ ] I have commented my code, particularly in hard-to-understand areas
+- [ ] I have made corresponding changes to the documentation
+- [ ] My changes generate no new warnings
+- [ ] I have added tests that prove my fix is effective or that my feature works
+- [ ] New and existing unit tests pass locally with my changes
 
-## Deployment Considerations
-- [ ] Environment variables updated (if needed)
-- [ ] Database migrations (if needed)
-- [ ] Breaking changes documented
+## 📱 Mobile Testing (if applicable)
+- [ ] Tested on Android
+- [ ] Tested on iOS  
+- [ ] USSD functionality works
+- [ ] Mobile Money integration works
 
-## Screenshots/Logs
-Add any relevant screenshots or log outputs.
-
-## Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-review completed
-- [ ] Code is properly commented
-- [ ] Tests added/updated
-- [ ] Documentation updated
-- [ ] No console errors or warnings
-
-## Related Issues
-Fixes #(issue number)
-
-## Additional Notes
-Any additional information about the changes.
+## 🌍 Deployment Notes
+Any special deployment considerations or environment variables needed.
