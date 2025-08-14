@@ -53,7 +53,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/node": "^24.2.1",
-    "@types/sqlite3": "^3.1.11",
+    "@types/sqlite3": "^5.1.0",
     "concurrently": "^9.2.0",
     "mocha": "^10.8.2",
     "nodemon": "^3.1.10",
