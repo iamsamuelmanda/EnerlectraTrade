@@ -46,7 +46,7 @@
     "ethers": "^6.15.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
-    "hardhat": "^2.26.1",
+    "hardhat": "^3.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
