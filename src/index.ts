@@ -199,6 +199,8 @@ function configureRoutes() {
     const securityStatus = securityConfig.getSecurityStatus();
     res.json({
       status: 'healthy',
+      service: 'Enerlectra - The Energy Internet',
+      version: '1.0.0',
       timestamp: new Date().toISOString(),
       security: {
         status: securityStatus.overall,
@@ -208,7 +210,21 @@ function configureRoutes() {
         monitoring: securityStatus.monitoring
       },
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || 'development',
+      features: {
+        authentication: 'Multi-factor authentication with biometric support',
+        trading: 'Real-time energy trading platform',
+        blockchain: 'Quantum-resistant blockchain security',
+        ai: 'AI-powered market insights and predictions',
+        mobileMoney: 'Integrated mobile money solutions',
+        websocket: 'Real-time WebSocket connections'
+      },
+      branding: {
+        name: 'Enerlectra',
+        tagline: 'The Energy Internet',
+        description: 'Join the future of African energy trading with blockchain-powered efficiency',
+        mission: 'Connecting energy producers and consumers through The Energy Internet'
+      }
     });
   });
 
@@ -297,7 +313,8 @@ function configureErrorHandling() {
 // ========================================
 async function initializeApplication() {
   try {
-    console.log('🚀 Initializing Enerlectra with military-grade security...');
+    console.log('🚀 Initializing Enerlectra - The Energy Internet with military-grade security...');
+    console.log('⚡ Mission: Connecting energy producers and consumers through The Energy Internet');
     
     // 1. Initialize security system first
     await initializeSecurity();
@@ -325,7 +342,7 @@ async function initializeApplication() {
       await initializeBlockchainService();
     }
     
-    console.log('🎉 Enerlectra application initialized successfully with military-grade security!');
+    console.log('🎉 Enerlectra - The Energy Internet initialized successfully with military-grade security!');
     console.log('🛡️  Security Features:');
     console.log('   • Quantum-resistant cryptography');
     console.log('   • Zero-trust network architecture');
@@ -333,6 +350,12 @@ async function initializeApplication() {
     console.log('   • Quantum blockchain security');
     console.log('   • Multi-factor authentication');
     console.log('   • Real-time security monitoring');
+    console.log('⚡ Energy Trading Features:');
+    console.log('   • Real-time energy marketplace');
+    console.log('   • Blockchain-powered transactions');
+    console.log('   • AI market insights');
+    console.log('   • Mobile money integration');
+    console.log('   • WebSocket real-time updates');
     
   } catch (error) {
     console.error('❌ Application initialization failed:', error);
@@ -349,10 +372,11 @@ async function startServer() {
   await initializeApplication();
   
   server.listen(PORT, () => {
-    console.log(`🚀 Enerlectra server running on port ${PORT}`);
+    console.log(`🚀 Enerlectra - The Energy Internet server running on port ${PORT}`);
     console.log(`🔐 Security level: ${securityConfig.getSecurityStatus().overall}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`⚡ Welcome to The Energy Internet!`);
   });
 }
 

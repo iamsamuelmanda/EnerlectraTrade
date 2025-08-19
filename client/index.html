@@ -2,24 +2,72 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Innerlectra - African Energy Trading Platform for Community Energy Cooperatives" />
-    <meta name="theme-color" content="#0ea5e9" />
-    <title>Innerlectra - African Energy Trading</title>
     
-    <!-- Preload critical resources -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Primary Meta Tags -->
+    <title>Enerlectra - The Energy Internet | African Energy Trading Platform</title>
+    <meta name="title" content="Enerlectra - The Energy Internet | African Energy Trading Platform" />
+    <meta name="description" content="Join the future of African energy trading with blockchain-powered efficiency. Enerlectra connects energy producers and consumers through The Energy Internet." />
+    <meta name="keywords" content="energy trading, Africa, blockchain, renewable energy, solar, wind, hydro, energy marketplace, Zambia, energy internet" />
+    <meta name="author" content="Enerlectra" />
+    <meta name="robots" content="index, follow" />
     
-    <!-- PWA manifest -->
-    <link rel="manifest" href="/manifest.json">
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://enerlectra.vercel.app/" />
+    <meta property="og:title" content="Enerlectra - The Energy Internet | African Energy Trading Platform" />
+    <meta property="og:description" content="Join the future of African energy trading with blockchain-powered efficiency. Enerlectra connects energy producers and consumers through The Energy Internet." />
+    <meta property="og:image" content="/logo.svg" />
+    <meta property="og:site_name" content="Enerlectra" />
     
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
-          crossorigin=""/>
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://enerlectra.vercel.app/" />
+    <meta property="twitter:title" content="Enerlectra - The Energy Internet | African Energy Trading Platform" />
+    <meta property="twitter:description" content="Join the future of African energy trading with blockchain-powered efficiency. Enerlectra connects energy producers and consumers through The Energy Internet." />
+    <meta property="twitter:image" content="/logo.svg" />
+    
+    <!-- Additional Meta Tags -->
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="msapplication-TileColor" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Enerlectra" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    
+    <style>
+      /* Custom CSS for Enerlectra branding */
+      :root {
+        --enerlectra-primary: #3b82f6;
+        --enerlectra-secondary: #f97316;
+        --enerlectra-dark: #0f172a;
+        --enerlectra-light: #e0f2fe;
+      }
+      
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      /* Loading animation for logo */
+      @keyframes energize {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.9; }
+      }
+      
+      .enerlectra-logo {
+        animation: energize 3s ease-in-out infinite;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

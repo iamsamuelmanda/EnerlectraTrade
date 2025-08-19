@@ -1,231 +1,227 @@
-# Enerlectra - African Energy Trading Platform
+# ⚡ Enerlectra - The Energy Internet
 
-[![CI/CD Pipeline](https://github.com/username/enerlectra/workflows/Enerlectra%20CI/CD%20Pipeline/badge.svg)](https://github.com/username/enerlectra/actions)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/typescript-%3E%3D4.0.0-blue.svg)](https://www.typescriptlang.org/)
+> **Connecting energy producers and consumers through The Energy Internet**
 
-Enerlectra is a decentralized energy trading platform designed for the African market, specifically targeting Zambia. The platform enables peer-to-peer energy trading, energy cluster leasing, and includes USSD mobile access for users without smartphones.
+[![Enerlectra Logo](client/public/logo.svg)](https://enerlectra.vercel.app)
 
-## 🌍 Features
+## 🌟 Vision & Mission
 
-### Core Functionality
-- **Peer-to-peer energy trading** - Direct energy transactions between users
-- **Energy cluster leasing** - Access to renewable energy from solar, wind, and hydro clusters
-- **USSD interface** - Mobile phone access without internet connectivity
-- **Carbon footprint tracking** - Environmental impact monitoring (0.8kg CO2 saved per kWh)
-- **Mobile money integration** - Seamless payments via mobile wallets
+**Enerlectra** is Africa's premier energy trading platform that revolutionizes how energy is bought, sold, and distributed across the continent. We're building **The Energy Internet** - a decentralized, blockchain-powered network that connects energy producers and consumers with unprecedented efficiency and transparency.
 
-### Advanced Features
-- **AI-powered anomaly detection** - Automated fraud detection and pattern analysis
-- **Blockchain payment system** - Hybrid blockchain and mobile money payments
-- **Market analytics dashboard** - Real-time platform statistics and insights
-- **Dynamic pricing engine** - Supply/demand-based pricing with time-of-day adjustments
-- **Bulk operations** - Multiple transactions in single requests
-- **Energy scheduling** - Future transaction scheduling and automation
-- **Real-time cluster monitoring** - Health scoring and predictive analytics
-- **Price alert system** - Customizable market condition alerts
+### 🎯 Our Mission
+- **Democratize Energy Access**: Make energy trading accessible to everyone
+- **Enable Renewable Integration**: Accelerate the adoption of clean energy sources
+- **Build Energy Infrastructure**: Create the digital backbone for Africa's energy future
+- **Foster Economic Growth**: Drive economic development through energy innovation
 
-## 🚀 Quick Start
+## 🚀 Key Features
 
-### Prerequisites
-- Node.js 18+ and npm
-- TypeScript 4+
-- Anthropic API key (for AI features)
+### 🔐 **Enterprise-Grade Security**
+- Military-grade security with quantum-resistant cryptography
+- Multi-factor authentication (MFA) with biometric support
+- Zero-trust network architecture
+- AI-powered threat detection and monitoring
+- Quantum blockchain security
 
-### Installation
-```bash
-# Clone the repository
-git clone https://github.com/username/enerlectra.git
-cd enerlectra
+### ⚡ **Real-Time Energy Trading**
+- Live energy marketplace with real-time pricing
+- Blockchain-powered transactions for transparency
+- WebSocket connections for instant updates
+- AI-powered market insights and predictions
+- Mobile money integration for seamless payments
 
-# Install dependencies
-npm install
-
-# Install TypeScript globally
-npm install -g typescript
-
-# Build the application
-npm run build
-
-# Start the server
-npm start
-```
-
-### Environment Variables
-Create a `.env` file in the root directory:
-```env
-PORT=5000
-NODE_ENV=development
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-```
-
-## 📚 API Documentation
-
-### Base URL
-- Development: `http://localhost:5000`
-- Production: `https://enerlectra.replit.app`
-
-### Core Endpoints
-
-#### Energy Trading
-- `POST /trade` - Execute energy trade between users
-- `POST /trade/bulk/trade` - Execute multiple trades in one request
-- `GET /transactions/:userId` - Get user transaction history
-
-#### Wallet Management
-- `GET /wallet/:userId` - Get user wallet balance
-- `POST /wallet/deposit` - Deposit funds to wallet
-
-#### Energy Clusters
-- `GET /cluster/:clusterId` - Get cluster information
-- `POST /lease` - Lease energy from cluster
-- `GET /monitoring/clusters` - Real-time cluster status
-
-#### Market Data
-- `GET /market/stats` - Platform statistics and market health
-- `GET /pricing` - Current market pricing and trends
-
-#### USSD Interface
-- `POST /ussd` - USSD menu interaction
-- `POST /mobilemoney/ussd` - Mobile money via USSD
-
-#### AI Features
-- `POST /ai/analyze-transaction` - Analyze transaction for anomalies
-- `POST /ai/user-assistance` - AI-powered user support
-- `POST /ai/market-insights` - Generate market insights
-
-#### Blockchain Payment
-- `POST /blockchain/wallet/create` - Create blockchain wallet
-- `POST /blockchain/transfer` - Blockchain transfer
-- `GET /blockchain/transaction/:txHash` - Get transaction status
+### 🌍 **African-Focused Solutions**
+- Localized for African energy markets
+- Support for multiple currencies (ZMW, USD, EUR)
+- Mobile-first design for widespread accessibility
+- Offline-capable PWA for unreliable connections
+- Multi-language support (English, French, Portuguese)
 
 ## 🏗️ Architecture
 
-### Backend Stack
-- **Framework**: Express.js with TypeScript
-- **Data Storage**: JSON file-based system (development)
-- **AI Integration**: Anthropic Claude API
-- **Blockchain**: Mock blockchain simulation (development)
+### Frontend (React + TypeScript)
+```
+client/
+├── src/
+│   ├── components/
+│   │   ├── EnerlectraLogo.tsx      # Animated logo component
+│   │   ├── LoadingScreen.tsx       # Branded loading experience
+│   │   ├── EnhancedLoginModal.tsx  # Multi-auth methods
+│   │   └── AIInsightsPanel.tsx     # AI-powered insights
+│   ├── contexts/
+│   │   ├── AuthContext.tsx         # Authentication management
+│   │   └── SocketContext.tsx       # WebSocket connections
+│   └── services/
+│       └── api.ts                  # API integration
+```
 
-### Project Structure
+### Backend (Node.js + Express)
 ```
 src/
-├── routes/          # API route handlers
-├── db/             # JSON data files
-├── types.ts        # TypeScript interfaces
-├── utils.ts        # Utility functions
-└── index.ts        # Application entry point
+├── config/
+│   └── security.ts                 # Military-grade security config
+├── middleware/
+│   └── securityMiddleware.ts       # Security enforcement
+├── routes/
+│   ├── auth.ts                     # Authentication endpoints
+│   ├── trade.ts                    # Trading operations
+│   ├── ai.ts                       # AI insights
+│   ├── mobilemoney.ts             # Mobile money integration
+│   └── blockchain.ts               # Blockchain operations
+└── services/
+    └── blockchainService.ts        # Blockchain integration
 ```
 
-## 🔄 CI/CD Pipeline
+## 🎨 Brand Identity
 
-### GitHub Actions Workflows
-- **Continuous Integration**: Automated testing and building
-- **Security Scanning**: Dependency audits and vulnerability checks
-- **Performance Testing**: API response time monitoring
-- **Automated Deployment**: Staging and production deployments
+### Logo Design
+Our logo represents the fusion of energy and technology:
+- **3D Stylized "E"**: Symbolizing energy, efficiency, and excellence
+- **Circuit Board Pattern**: Representing the digital infrastructure
+- **Energy Nodes**: Glowing orange dots showing active connections
+- **Blue Energy Flow**: Dynamic lines representing data and energy transfer
 
-### Branch Strategy
-- `main` - Production branch (auto-deploys to production)
-- `develop` - Development branch (auto-deploys to staging)
-- Feature branches - Merged via pull requests
+### Color Palette
+- **Primary Blue**: `#3b82f6` - Trust, technology, energy
+- **Secondary Orange**: `#f97316` - Innovation, creativity, warmth
+- **Dark Slate**: `#0f172a` - Professionalism, stability
+- **Light Blue**: `#e0f2fe` - Clarity, transparency
 
-### Deployment
-The application automatically deploys to:
-- **Staging**: `https://enerlectra-staging.replit.app` (develop branch)
-- **Production**: `https://enerlectra.replit.app` (main branch)
+### Typography
+- **Primary Font**: Inter - Modern, readable, professional
+- **Logo Font**: Custom geometric sans-serif for brand recognition
 
-## 🌱 Environmental Impact
+## 🚀 Getting Started
 
-Every kWh traded on the platform saves:
-- **0.8 kg CO2** emissions
-- Equivalent to planting trees
-- Offsetting car emissions
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+- Git
 
-## 📱 USSD Access
+### Frontend Setup
+```bash
+cd client
+npm install
+npm run dev
+```
 
-Access the platform via USSD on any mobile phone:
-- Dial USSD code and navigate menus
-- No internet connection required
-- Full functionality available
+### Backend Setup
+```bash
+npm install
+npm run dev
+```
 
-## 🤖 AI-Powered Features
+### Environment Variables
+Create `.env` files in both root and client directories:
 
-### Anomaly Detection
-- Suspicious transaction pattern analysis
-- Fraud prevention and user protection
-- Automated risk assessment
+```env
+# Backend (.env)
+NODE_ENV=development
+PORT=5000
+JWT_SECRET=your-super-secret-jwt-key
+CORS_ORIGINS=http://localhost:3000,https://enerlectra.vercel.app
 
-### User Assistance
-- Natural language query support
-- Platform guidance and recommendations
-- 24/7 automated customer support
-
-### Market Insights
-- AI-generated market analysis
-- Trading recommendations
-- Risk factor identification
-
-## 💳 Payment Methods
-
-### Supported Options
-- **Mobile Money**: MTN, Airtel, Zamtel
-- **Blockchain**: Energy tokens and payment tokens
-- **Hybrid**: Combined blockchain and mobile money
-
-## 🔒 Security
-
-- Input validation on all endpoints
-- Transaction anomaly detection
-- Secure API key management
-- Regular security audits
+# Frontend (.env)
+VITE_API_URL=http://localhost:5000
+VITE_WS_URL=ws://localhost:5000
+```
 
 ## 🧪 Testing
 
+### Frontend Tests
 ```bash
-# Run tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run linting
-npm run lint
+cd client
+npm run test              # Run all tests
+npm run test:auth         # Authentication tests only
+npm run test:coverage     # With coverage report
 ```
 
-## 📈 Monitoring
+### Backend Tests
+```bash
+npm run test              # Run all tests
+npm run test:security     # Security tests only
+npm run test:api          # API endpoint tests
+```
 
-- Health check endpoint: `/health`
-- Real-time cluster monitoring
-- Transaction volume tracking
-- Performance metrics
+### Comprehensive Testing
+```bash
+cd client
+npm run test:all          # Frontend + Backend + Security
+```
+
+## 🌐 Deployment
+
+### Vercel (Frontend)
+```bash
+cd client
+vercel --prod
+```
+
+### Railway/Heroku (Backend)
+```bash
+git push heroku main
+```
+
+## 🔐 Security Features
+
+### Authentication Methods
+- **Phone Authentication**: SMS-based verification
+- **Email Authentication**: Magic link and OTP
+- **Social Login**: Google, Facebook, Apple
+- **Biometric Authentication**: Fingerprint, Face ID
+- **Guest Mode**: Limited access for exploration
+
+### Security Measures
+- **Rate Limiting**: Advanced DDoS protection
+- **Input Validation**: Comprehensive sanitization
+- **SQL Injection Protection**: Parameterized queries
+- **XSS Prevention**: Content Security Policy
+- **CSRF Protection**: Token-based validation
+
+## 📱 PWA Features
+
+- **Offline Capability**: Works without internet
+- **App Installation**: Install as native app
+- **Push Notifications**: Real-time updates
+- **Background Sync**: Data synchronization
+- **Responsive Design**: Mobile-first approach
 
 ## 🤝 Contributing
 
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Workflow
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🌍 About African Energy Access
+## 🌟 Acknowledgments
 
-Enerlectra addresses critical energy access challenges in rural Africa by:
-- Enabling decentralized energy trading
-- Supporting mobile-first access patterns
-- Promoting renewable energy adoption
-- Providing financial inclusion through energy commerce
+- **African Energy Community**: For inspiration and feedback
+- **Blockchain Community**: For technological innovation
+- **Open Source Contributors**: For building the future together
 
-## 📞 Support
+## 📞 Contact
 
-- Email: support@enerlectra.com
-- USSD: Dial platform code for mobile support
-- GitHub Issues: Report bugs and feature requests
+- **Website**: [https://enerlectra.vercel.app](https://enerlectra.vercel.app)
+- **Email**: info@enerlectra.com
+- **Twitter**: [@Enerlectra](https://twitter.com/Enerlectra)
+- **LinkedIn**: [Enerlectra](https://linkedin.com/company/enerlectra)
 
 ---
 
-**Built with ❤️ for sustainable energy access in Africa**
+<div align="center">
+
+**⚡ Powered by The Energy Internet ⚡**
+
+*Connecting Africa's energy future, one trade at a time*
+
+[![Enerlectra](client/public/logo.svg)](https://enerlectra.vercel.app)
+
+</div>
