@@ -411,3 +411,4 @@ router.post('/market-insights', async (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=ai.js.map

@@ -186,3 +186,4 @@ router.get('/history', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=pricing.js.map

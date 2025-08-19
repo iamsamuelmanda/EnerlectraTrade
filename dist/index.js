@@ -6,321 +6,244 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
-const logger_1 = __importDefault(require("./utils/logger"));
-const init_1 = require("./db/init");
-const rateLimiter_1 = require("./utils/rateLimiter");
-const dotenv_1 = __importDefault(require("dotenv"));
-const sdk_1 = require("@anthropic-ai/sdk");
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const cookie_parser_1 = __importDefault(require("cookie-parser"));
+const http_1 = require("http");
+const socket_io_1 = require("socket.io");
+const dotenv_1 = require("dotenv");
 // Load environment variables
-dotenv_1.default.config();
-// Initialize Anthropic client
-const anthropic = process.env.ANTHROPIC_API_KEY
-    ? new sdk_1.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-    : null;
-// Import all route handlers
-const wallet_1 = __importDefault(require("./routes/wallet"));
-const trade_1 = __importDefault(require("./routes/trade"));
-const lease_1 = __importDefault(require("./routes/lease"));
-const carbon_1 = __importDefault(require("./routes/carbon"));
-const ussd_1 = __importDefault(require("./routes/ussd"));
-const cluster_1 = __importDefault(require("./routes/cluster"));
-const clusters_1 = __importDefault(require("./routes/clusters"));
-const transactions_1 = __importDefault(require("./routes/transactions"));
-const ai_1 = __importDefault(require("./routes/ai"));
-const blockchain_1 = __importDefault(require("./routes/blockchain"));
-const market_1 = __importDefault(require("./routes/market"));
-const users_1 = __importDefault(require("./routes/users"));
-const pricing_1 = __importDefault(require("./routes/pricing"));
-const bulk_1 = __importDefault(require("./routes/bulk"));
-const schedule_1 = __importDefault(require("./routes/schedule"));
-const monitoring_1 = __importDefault(require("./routes/monitoring"));
-const mobilemoney_1 = __importDefault(require("./routes/mobilemoney"));
-const alerts_1 = __importDefault(require("./routes/alerts"));
+(0, dotenv_1.config)();
 const app = (0, express_1.default)();
-const PORT = Number(process.env.PORT) || 5000;
-// Define public paths for authentication
-const publicPaths = [
-    '/health',
-    '/',
-    '/ussd',
-    '/mobilemoney',
-    '/cluster',
-    '/clusters',
-    '/market/stats',
-    '/pricing',
-    '/ai/public' // Public AI endpoints
-];
-// Make Anthropic available in routes
-app.locals.anthropic = anthropic;
-// ======================
-// MIDDLEWARE SETUP
-// ======================
-// Enable CORS for cross-origin requests
-app.use((0, cors_1.default)());
-// Add security headers (Helmet)
-app.use((0, helmet_1.default)({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https: 'unsafe-eval'"],
-            styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-            imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'", "https:"],
-            fontSrc: ["'self'", "https:", "data:"],
-            objectSrc: ["'none'"],
-            upgradeInsecureRequests: [],
+const server = (0, http_1.createServer)(app);
+const io = new socket_io_1.Server(server, {
+    cors: {
+        origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://enerlectra.vercel.app'],
+        credentials: true
+    }
+});
+// Make io instance available to routes
+app.set('io', io);
+// ========================================
+// BASIC SECURITY MIDDLEWARE
+// ========================================
+function configureSecurityMiddleware() {
+    // Enhanced security headers
+    app.use((0, helmet_1.default)({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                imgSrc: ["'self'", "data:", "https:"],
+                connectSrc: ["'self'", "wss:", "https:"],
+                fontSrc: ["'self'", "https:"],
+                objectSrc: ["'none'"],
+                mediaSrc: ["'self'"],
+                frameSrc: ["'none'"]
+            }
         },
-    },
-}));
-// Parse JSON bodies
-app.use(express_1.default.json());
-// Parse URL-encoded bodies
-app.use(express_1.default.urlencoded({ extended: true }));
-// Request logging middleware
-app.use((req, res, next) => {
-    logger_1.default.info(`${req.method} ${req.path}`, {
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
+        hsts: {
+            maxAge: 31536000,
+            includeSubDomains: true,
+            preload: true
+        },
+        noSniff: true,
+        frameguard: { action: 'deny' },
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+    }));
+    const limiter = (0, express_rate_limit_1.default)({
+        windowMs: 15 * 60 * 1000, // 15 minutes
+        max: 100, // limit each IP to 100 requests per windowMs
+        message: {
+            success: false,
+            error: 'Rate Limit Exceeded',
+            message: 'Too many requests. Please try again later.'
+        },
+        standardHeaders: true,
+        legacyHeaders: false
     });
-    next();
-});
-// Rate limiting middleware
-app.use(async (req, res, next) => {
-    try {
-        await (0, rateLimiter_1.consumeRateLimit)(req.ip || 'unknown');
-        next();
-    }
-    catch (err) {
-        logger_1.default.warn(`Rate limit exceeded: ${req.ip}`, { path: req.path });
-        const response = {
-            success: false,
-            message: 'Too many requests',
-            error: 'Rate limit exceeded',
-            retryAfter: '60 seconds'
-        };
-        res.status(429).json(response);
-    }
-});
-// API KEY AUTHENTICATION MIDDLEWARE
-// =================================
-app.use((req, res, next) => {
-    // Skip authentication for public endpoints
-    const isPublicPath = publicPaths.some(path => req.path === path || req.path.startsWith(`${path}/`));
-    if (isPublicPath)
-        return next();
-    // API key verification
-    const apiKey = req.headers['x-api-key'];
-    if (!apiKey) {
-        logger_1.default.warn('API key missing', { path: req.path, ip: req.ip });
-        return res.status(401).json({
-            success: false,
-            error: 'Unauthorized',
-            message: 'API key required in X-API-Key header',
-            documentation: `${req.protocol}://${req.get('host')}/#security`
-        });
-    }
-    if (apiKey !== process.env.INTERNAL_API_KEY) {
-        logger_1.default.warn('Invalid API key attempt', { path: req.path, ip: req.ip });
-        return res.status(403).json({
-            success: false,
-            error: 'Forbidden',
-            message: 'Invalid API key',
-            support: 'contact@enerlectra.zm'
-        });
-    }
-    next();
-});
-// ======================
-// ROUTE HANDLERS
-// ======================
-// Health check endpoint
-app.get('/health', (req, res) => {
-    const response = {
-        success: true,
-        data: {
+    app.use(limiter);
+    // CORS configuration
+    app.use((0, cors_1.default)({
+        origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://enerlectra.vercel.app'],
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    }));
+    // Cookie parser
+    app.use((0, cookie_parser_1.default)(process.env.JWT_SECRET || 'dev-secret-change-me'));
+    // Body parsing with size limits
+    app.use(express_1.default.json({ limit: '10mb' }));
+    app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));
+    console.log('✅ Basic security middleware configured successfully');
+}
+// ========================================
+// ROUTES
+// ========================================
+function configureRoutes() {
+    // Health check with branding
+    app.get('/health', (req, res) => {
+        res.json({
             status: 'healthy',
+            service: 'Enerlectra - The Energy Internet',
+            version: '1.0.0',
             timestamp: new Date().toISOString(),
-            service: 'Enerlectra Backend',
-            version: '1.0.0',
-            environment: process.env.NODE_ENV || 'development',
-            uptime: process.uptime(),
-            dependencies: {
-                database: 'operational',
-                blockchain: process.env.BLOCKCHAIN_NODE_URL ? 'connected' : 'disconnected',
-                anthropic: anthropic ? 'ready' : 'disabled',
-                mobileMoney: process.env.MOBILE_MONEY_API_KEY ? 'configured' : 'missing'
-            }
-        },
-        message: 'Enerlectra energy trading platform is running'
-    };
-    res.json(response);
-});
-// API documentation endpoint
-app.get('/', (req, res) => {
-    const response = {
-        success: true,
-        data: {
-            service: 'Enerlectra - African Energy Trading Platform',
-            version: '1.0.0',
-            description: 'Decentralized energy commerce with USSD mobile access',
-            endpoints: {
-                health: 'GET /health - Service health check',
-                wallet: 'GET /wallet/:userId - Get user wallet information',
-                trade: 'POST /trade - Trade energy between users',
-                lease: 'POST /lease - Lease energy from clusters',
-                carbon: 'GET /carbon/:userId - Get carbon footprint data',
-                ussd: 'POST /ussd - USSD mobile interface',
-                clusters: 'GET /cluster - Get all clusters, GET /cluster/:id - Get specific cluster',
-                transactions: 'GET /transactions/:userId - Get user transaction history',
-                market: 'GET /market/stats - Platform market statistics',
-                users: 'POST /users/register - Register new user, GET /users/:userId - Get user profile',
-                pricing: 'GET /pricing - Current market rates and pricing',
-                bulk: 'POST /trade/bulk/trade - Execute multiple trades, POST /trade/bulk/purchase - Bulk purchases',
-                schedule: 'POST /schedule/trade - Schedule future trade, GET /schedule/:userId - User scheduled transactions',
-                monitoring: 'GET /monitoring/clusters - Real-time cluster monitoring',
-                mobilemoney: 'POST /mobilemoney/ussd - Mobile money USSD interface',
-                alerts: 'POST /alerts/subscribe - Subscribe to price alerts, POST /alerts/ussd - Alert management via USSD',
-                ai: 'POST /ai/ask - Ask AI assistant'
-            },
-            businessLogic: {
-                energyRate: `${process.env.KWH_TO_ZMW_RATE || '1.2'} ZMW per kWh`,
-                carbonSavings: `${process.env.CARBON_SAVINGS_PER_KWH || '0.8'} kg CO2 saved per kWh traded`,
-                features: [
-                    'Energy trading',
-                    'Cluster leasing',
-                    'Carbon tracking',
-                    'USSD access',
-                    'Mobile money integration',
-                    'Price alerts',
-                    'Bulk operations',
-                    'Energy scheduling',
-                    'Real-time monitoring',
-                    'AI-powered assistance'
-                ]
-            },
             security: {
-                note: 'Protected endpoints require X-API-Key header',
-                publicEndpoints: publicPaths,
-                keyHeader: 'X-API-Key'
+                status: 'active',
+                features: ['rate-limiting', 'helmet', 'cors', 'cookies']
+            },
+            uptime: process.uptime(),
+            environment: process.env.NODE_ENV || 'development',
+            features: {
+                authentication: 'Basic authentication system',
+                trading: 'Energy trading platform',
+                websocket: 'Real-time WebSocket connections',
+                api: 'RESTful API endpoints'
+            },
+            branding: {
+                name: 'Enerlectra',
+                tagline: 'The Energy Internet',
+                description: 'Join the future of African energy trading with blockchain-powered efficiency',
+                mission: 'Connecting energy producers and consumers through The Energy Internet'
             }
+        });
+    });
+    // Basic API endpoints
+    app.get('/api', (req, res) => {
+        res.json({
+            message: 'Welcome to Enerlectra API',
+            version: '1.0.0',
+            endpoints: {
+                health: '/health',
+                api: '/api'
+            }
+        });
+    });
+    // 404 handler
+    app.use('*', (req, res) => {
+        res.status(404).json({
+            success: false,
+            error: 'Not Found',
+            message: 'The requested resource was not found'
+        });
+    });
+    console.log('✅ Routes configured successfully');
+}
+// ========================================
+// WEBSOCKET CONFIGURATION
+// ========================================
+function configureWebSocket() {
+    io.use((socket, next) => {
+        // Basic socket authentication (can be enhanced later)
+        const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+        if (!token) {
+            console.log('Socket connection without token (guest mode)');
         }
-    };
-    res.json(response);
-});
-// ======================
-// API ROUTES
-// ======================
-app.use('/wallet', wallet_1.default);
-app.use('/trade', trade_1.default);
-app.use('/lease', lease_1.default);
-app.use('/carbon', carbon_1.default);
-app.use('/ussd', ussd_1.default);
-app.use('/cluster', cluster_1.default);
-app.use('/clusters', clusters_1.default);
-app.use('/transactions', transactions_1.default);
-app.use('/market', market_1.default);
-app.use('/users', users_1.default);
-app.use('/pricing', pricing_1.default);
-app.use('/trade/bulk', bulk_1.default);
-app.use('/schedule', schedule_1.default);
-app.use('/monitoring', monitoring_1.default);
-app.use('/mobilemoney', mobilemoney_1.default);
-app.use('/alerts', alerts_1.default);
-app.use('/ai', ai_1.default);
-app.use('/blockchain', blockchain_1.default);
-// ======================
+        next();
+    });
+    io.on('connection', (socket) => {
+        console.log(`🔌 WebSocket connection: ${socket.id}`);
+        socket.on('disconnect', () => {
+            console.log(`🔌 WebSocket disconnected: ${socket.id}`);
+        });
+        // Handle energy trading events
+        socket.on('trade-completed', (data) => {
+            console.log('Trade completed:', data);
+            socket.broadcast.emit('trade-update', data);
+        });
+        socket.on('offer-created', (data) => {
+            console.log('Offer created:', data);
+            socket.broadcast.emit('offer-update', data);
+        });
+    });
+    console.log('✅ WebSocket configured successfully');
+}
+// ========================================
 // ERROR HANDLING
-// ======================
-// Error handling middleware
-app.use((err, req, res, next) => {
-    const errorId = `ERR-${Date.now()}`;
-    logger_1.default.error(`Unhandled error [${errorId}]: ${err.message}`, {
-        stack: err.stack,
-        path: req.path,
-        method: req.method
+// ========================================
+function configureErrorHandling() {
+    // Global error handler
+    app.use((error, req, res, next) => {
+        console.error('🚨 Error:', {
+            error: error.message,
+            stack: error.stack,
+            ip: req.ip,
+            url: req.url,
+            method: req.method,
+            timestamp: new Date().toISOString()
+        });
+        // Don't expose internal errors to clients
+        res.status(500).json({
+            success: false,
+            error: 'Internal Server Error',
+            message: 'An error occurred while processing your request'
+        });
     });
-    const response = {
-        success: false,
-        error: 'Internal server error',
-        message: 'An unexpected error occurred',
-        errorId: errorId,
-        support: 'support@enerlectra.zm'
-    };
-    res.status(500).json(response);
-});
-// 404 handler
-app.use((req, res) => {
-    logger_1.default.warn(`Route not found: ${req.method} ${req.originalUrl}`);
-    const response = {
-        success: false,
-        error: 'Not found',
-        message: `Route ${req.method} ${req.originalUrl} not found`,
-        suggestions: [
-            '/health - Service status',
-            '/ - API documentation'
-        ]
-    };
-    res.status(404).json(response);
-});
-// ======================
-// SERVER INITIALIZATION
-// ======================
-// Initialize database and start server
-(0, init_1.initializeDB)().then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
-        // ASCII Art Banner
-        logger_1.default.info(`
-    ███████╗███╗   ██╗███████╗██████╗ ██╗     ███████╗ ██████╗████████╗██████╗  █████╗ 
-    ██╔════╝████╗  ██║██╔════╝██╔══██╗██║     ██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔══██╗
-    █████╗  ██╔██╗ ██║█████╗  ██████╔╝██║     █████╗  ██║        ██║   ██████╔╝███████║
-    ██╔══╝  ██║╚██╗██║██╔══╝  ██╔══██╗██║     ██╔══╝  ██║        ██║   ██╔══██╗██╔══██║
-    ███████╗██║ ╚████║███████╗██║  ██║███████╗███████╗╚██████╗   ██║   ██║  ██║██║  ██║
-    ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
-    `);
-        logger_1.default.info(`🔋 Enerlectra Backend Server v1.0.0`);
-        logger_1.default.info(`🌍 Listening on port ${PORT}`);
-        logger_1.default.info(`📱 USSD Interface: POST /ussd`);
-        logger_1.default.info(`💸 Mobile Money: POST /mobilemoney`);
-        logger_1.default.info(`🧠 AI Assistant: POST /ai/ask`);
-        logger_1.default.info(`💰 Energy Rate: ${process.env.KWH_TO_ZMW_RATE || '1.2'} ZMW per kWh`);
-        logger_1.default.info(`🌱 Carbon Impact: ${process.env.CARBON_SAVINGS_PER_KWH || '0.8'} kg CO2 saved per kWh`);
-        logger_1.default.info(`⚙️ Environment: ${process.env.NODE_ENV || 'development'}`);
-        logger_1.default.info(`📊 Health check: http://localhost:${PORT}/health`);
-        // Security status report
-        logger_1.default.info('🔐 Security Status:');
-        logger_1.default.info(`• API Key Protection: ${process.env.INTERNAL_API_KEY ? '✅ Enabled' : '❌ DISABLED'}`);
-        logger_1.default.info(`• Anthropic AI: ${anthropic ? '✅ Ready' : '❌ Disabled'}`);
-        logger_1.default.info(`• Blockchain Node: ${process.env.BLOCKCHAIN_NODE_URL ? '✅ Connected' : '❌ Not configured'}`);
-        logger_1.default.info(`• Mobile Money: ${process.env.MOBILE_MONEY_API_KEY ? '✅ Configured' : '❌ Missing'}`);
-        // Warning if security is disabled
-        if (!process.env.INTERNAL_API_KEY) {
-            logger_1.default.warn('⚠️  WARNING: API key protection is disabled. Set INTERNAL_API_KEY in .env for production!');
-        }
-        // Success message
-        logger_1.default.info('🚀 Enerlectra trading platform ready for business!');
+    console.log('✅ Error handling configured successfully');
+}
+// ========================================
+// MAIN INITIALIZATION
+// ========================================
+async function initializeApplication() {
+    try {
+        console.log('🚀 Initializing Enerlectra - The Energy Internet...');
+        console.log('⚡ Mission: Connecting energy producers and consumers through The Energy Internet');
+        // 1. Configure basic security middleware
+        configureSecurityMiddleware();
+        // 2. Configure routes
+        configureRoutes();
+        // 3. Configure WebSocket
+        configureWebSocket();
+        // 4. Configure error handling
+        configureErrorHandling();
+        console.log('🎉 Enerlectra - The Energy Internet initialized successfully!');
+        console.log('🛡️  Security Features:');
+        console.log('   • Rate limiting and DDoS protection');
+        console.log('   • Security headers with Helmet');
+        console.log('   • CORS configuration');
+        console.log('   • Cookie security');
+        console.log('⚡ Energy Trading Features:');
+        console.log('   • Real-time WebSocket connections');
+        console.log('   • RESTful API endpoints');
+        console.log('   • Health monitoring');
+        console.log('   • Error handling');
+    }
+    catch (error) {
+        console.error('❌ Application initialization failed:', error);
+        process.exit(1);
+    }
+}
+// ========================================
+// START SERVER
+// ========================================
+const PORT = process.env.PORT || 5000;
+async function startServer() {
+    await initializeApplication();
+    server.listen(PORT, () => {
+        console.log(`🚀 Enerlectra - The Energy Internet server running on port ${PORT}`);
+        console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`📊 Health check: http://localhost:${PORT}/health`);
+        console.log(`⚡ Welcome to The Energy Internet!`);
     });
-}).catch(err => {
-    logger_1.default.error('❌ FATAL: Failed to start server', err);
-    process.exit(1);
-});
-// ======================
-// GRACEFUL SHUTDOWN
-// ======================
+}
+// Handle graceful shutdown
 process.on('SIGTERM', () => {
-    logger_1.default.info('SIGTERM received, shutting down gracefully');
-    process.exit(0);
+    console.log('🔄 SIGTERM received, shutting down gracefully...');
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
 });
 process.on('SIGINT', () => {
-    logger_1.default.info('SIGINT received, shutting down gracefully');
-    process.exit(0);
+    console.log('🔄 SIGINT received, shutting down gracefully...');
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
 });
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-    logger_1.default.error('UNCAUGHT EXCEPTION! 💥 Shutting down...', err);
+// Start the application
+startServer().catch((error) => {
+    console.error('❌ Failed to start server:', error);
     process.exit(1);
 });
-// Handle unhandled rejections
-process.on('unhandledRejection', (reason, promise) => {
-    logger_1.default.error('UNHANDLED REJECTION! 💥 Shutting down...', { reason, promise });
-    process.exit(1);
-});
+//# sourceMappingURL=index.js.map

@@ -208,3 +208,4 @@ router.get('/cluster/:clusterId', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=monitoring.js.map

@@ -38,3 +38,4 @@ router.get('/:userId', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=wallet.js.map
