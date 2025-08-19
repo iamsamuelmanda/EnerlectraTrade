@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { 
   X, Phone, Lock, User, QrCode, Eye, EyeOff, 
   Mail, Smartphone, Fingerprint, Globe, 
-  Chrome, Download, Guest, Zap
+  Chrome, Download, UserCheck, Zap
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { usePWA } from '../hooks/usePWA'
