@@ -1,14 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // Mock blockchain network simulation
 class MockBlockchain {
     static async createTransaction(fromAddress, toAddress, amountZMW, kWh) {
         const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
         const transaction = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             txHash,
             fromAddress,
             toAddress,
@@ -56,7 +56,7 @@ router.post('/wallet/create', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {
@@ -68,7 +68,7 @@ router.post('/wallet/create', (req, res) => {
         // Generate mock wallet address
         const address = `0x${Math.random().toString(16).substr(2, 40)}`;
         const privateKey = `0x${Math.random().toString(16).substr(2, 64)}`;
-        const wallets = (0, utils_1.readJsonFile)('blockchain_wallets.json');
+        const wallets = (0, common_1.readJsonFile)('blockchain_wallets.json');
         // Check if user already has a wallet of this type
         const existingWallet = wallets.find(w => w.userId === userId && w.type === type);
         if (existingWallet) {
@@ -79,7 +79,7 @@ router.post('/wallet/create', (req, res) => {
             return res.status(400).json(response);
         }
         const newWallet = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             userId,
             address,
             privateKey,
@@ -89,7 +89,7 @@ router.post('/wallet/create', (req, res) => {
             createdAt: new Date().toISOString()
         };
         wallets.push(newWallet);
-        (0, utils_1.writeJsonFile)('blockchain_wallets.json', wallets);
+        (0, common_1.writeJsonFile)('blockchain_wallets.json', wallets);
         const response = {
             success: true,
             data: {
@@ -123,7 +123,7 @@ router.post('/transfer', async (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const fromUser = users.find(u => u.id === fromUserId);
         const toUser = users.find(u => u.id === toUserId);
         if (!fromUser || !toUser) {
@@ -133,7 +133,7 @@ router.post('/transfer', async (req, res) => {
             };
             return res.status(404).json(response);
         }
-        const wallets = (0, utils_1.readJsonFile)('blockchain_wallets.json');
+        const wallets = (0, common_1.readJsonFile)('blockchain_wallets.json');
         const fromWallet = wallets.find(w => w.userId === fromUserId && w.isActive);
         const toWallet = wallets.find(w => w.userId === toUserId && w.isActive);
         if (!fromWallet || !toWallet) {
@@ -163,9 +163,9 @@ router.post('/transfer', async (req, res) => {
         // Create blockchain transaction
         const blockchainTx = await MockBlockchain.createTransaction(fromWallet.address, toWallet.address, transferAmount, transferEnergy);
         // Create platform transaction record
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         const newTransaction = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             type: 'blockchain_transfer',
             buyerId: toUserId,
             sellerId: fromUserId,
@@ -177,13 +177,13 @@ router.post('/transfer', async (req, res) => {
             paymentMethod: paymentMethod
         };
         transactions.push(newTransaction);
-        (0, utils_1.writeJsonFile)('transactions.json', transactions);
+        (0, common_1.writeJsonFile)('transactions.json', transactions);
         // Update user balances (will be confirmed when blockchain tx confirms)
         fromUser.balanceZMW -= transferAmount;
         fromUser.balanceKWh -= transferEnergy;
         toUser.balanceZMW += transferAmount;
         toUser.balanceKWh += transferEnergy;
-        (0, utils_1.writeJsonFile)('users.json', users);
+        (0, common_1.writeJsonFile)('users.json', users);
         const response = {
             success: true,
             data: {
@@ -268,7 +268,7 @@ router.post('/payment-method', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {
@@ -277,7 +277,7 @@ router.post('/payment-method', (req, res) => {
             };
             return res.status(404).json(response);
         }
-        const paymentMethods = (0, utils_1.readJsonFile)('payment_methods.json');
+        const paymentMethods = (0, common_1.readJsonFile)('payment_methods.json');
         // If setting as default, unset other defaults
         if (isDefault) {
             paymentMethods.forEach(pm => {
@@ -287,7 +287,7 @@ router.post('/payment-method', (req, res) => {
             });
         }
         const newPaymentMethod = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             userId,
             type,
             isDefault,
@@ -296,7 +296,7 @@ router.post('/payment-method', (req, res) => {
             createdAt: new Date().toISOString()
         };
         paymentMethods.push(newPaymentMethod);
-        (0, utils_1.writeJsonFile)('payment_methods.json', paymentMethods);
+        (0, common_1.writeJsonFile)('payment_methods.json', paymentMethods);
         const response = {
             success: true,
             data: {
@@ -323,7 +323,7 @@ router.post('/payment-method', (req, res) => {
 router.get('/wallet/:userId', (req, res) => {
     try {
         const { userId } = req.params;
-        const wallets = (0, utils_1.readJsonFile)('blockchain_wallets.json');
+        const wallets = (0, common_1.readJsonFile)('blockchain_wallets.json');
         const userWallets = wallets.filter(w => w.userId === userId && w.isActive);
         const walletsWithTransactions = userWallets.map(wallet => {
             const transactions = MockBlockchain.getTransactionsByAddress(wallet.address);
@@ -367,7 +367,7 @@ router.get('/wallet/:userId', (req, res) => {
 router.get('/payment-methods/:userId', (req, res) => {
     try {
         const { userId } = req.params;
-        const paymentMethods = (0, utils_1.readJsonFile)('payment_methods.json');
+        const paymentMethods = (0, common_1.readJsonFile)('payment_methods.json');
         const userPaymentMethods = paymentMethods.filter(pm => pm.userId === userId);
         const response = {
             success: true,

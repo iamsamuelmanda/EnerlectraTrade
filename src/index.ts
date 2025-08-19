@@ -1,364 +1,380 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { ApiResponse } from './types';
-import logger from './utils/logger';
-import { initializeDB } from './db/init';
-import { consumeRateLimit } from './utils/rateLimiter';
-import dotenv from 'dotenv';
-import { Anthropic } from '@anthropic-ai/sdk';
+import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { config } from 'dotenv';
+
+// Import security systems
+import SecurityConfiguration from './config/security';
+import MilitaryGradeSecurityMiddleware from './middleware/securityMiddleware';
+
+// Import routes
+import authRoutes from './routes/auth';
+import tradeRoutes from './routes/trade';
+import aiRoutes from './routes/ai';
+import mobileMoneyRoutes from './routes/mobilemoney';
+import blockchainRoutes from './routes/blockchain';
+
+// Import services
+import { initializeBlockchainService } from './services/blockchainService';
 
 // Load environment variables
-dotenv.config();
-
-// Initialize Anthropic client
-const anthropic = process.env.ANTHROPIC_API_KEY 
-  ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  : null;
-
-// Import all route handlers
-import walletRoutes from './routes/wallet';
-import tradeRoutes from './routes/trade';
-import leaseRoutes from './routes/lease';
-import carbonRoutes from './routes/carbon';
-import ussdRoutes from './routes/ussd';
-import clusterRoutes from './routes/cluster';
-import clustersRoutes from './routes/clusters';
-import transactionRoutes from './routes/transactions';
-import aiRoutes from './routes/ai';
-import blockchainRoutes from './routes/blockchain';
-import marketRoutes from './routes/market';
-import userRoutes from './routes/users';
-import pricingRoutes from './routes/pricing';
-import bulkRoutes from './routes/bulk';
-import scheduleRoutes from './routes/schedule';
-import monitoringRoutes from './routes/monitoring';
-import mobileMoneyRoutes from './routes/mobilemoney';
-import alertRoutes from './routes/alerts';
+config();
 
 const app = express();
-const PORT = Number(process.env.PORT) || 5000;
-
-// Define public paths for authentication
-const publicPaths = [
-  '/health', 
-  '/', 
-  '/ussd', 
-  '/mobilemoney',
-  '/cluster',
-  '/clusters',
-  '/market/stats',
-  '/pricing',
-  '/ai/public'  // Public AI endpoints
-];
-
-// Make Anthropic available in routes
-app.locals.anthropic = anthropic;
-
-// ======================
-// MIDDLEWARE SETUP
-// ======================
-
-// Enable CORS for cross-origin requests
-app.use(cors());
-
-// Add security headers (Helmet)
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https: 'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https:"],
-      fontSrc: ["'self'", "https:", "data:"],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: [],
-    },
-  },
-}));
-
-// Parse JSON bodies
-app.use(express.json());
-
-// Parse URL-encoded bodies
-app.use(express.urlencoded({ extended: true }));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    ip: req.ip,
-    userAgent: req.headers['user-agent']
-  });
-  next();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    credentials: true
+  }
 });
 
-// Rate limiting middleware
-app.use(async (req, res, next) => {
+// Make io instance available to routes
+app.set('io', io);
+
+// Initialize security system
+let securityConfig: SecurityConfiguration;
+
+// ========================================
+// MILITARY-GRADE SECURITY INITIALIZATION
+// ========================================
+async function initializeSecurity() {
   try {
-    await consumeRateLimit(req.ip || 'unknown');
-    next();
-  } catch (err) {
-    logger.warn(`Rate limit exceeded: ${req.ip}`, { path: req.path });
-    const response: ApiResponse = {
-      success: false,
-      message: 'Too many requests',
-      error: 'Rate limit exceeded',
-      retryAfter: '60 seconds'
-    };
-    res.status(429).json(response);
+    console.log('🔐 Initializing military-grade security system...');
+    
+    securityConfig = SecurityConfiguration.getInstance();
+    await securityConfig.initializeSecurity();
+    
+    console.log('✅ Security system initialized successfully');
+    console.log('🛡️  Security status:', securityConfig.getSecurityStatus());
+    
+  } catch (error) {
+    console.error('❌ Security initialization failed:', error);
+    process.exit(1); // Exit if security cannot be initialized
   }
-});
+}
 
-// API KEY AUTHENTICATION MIDDLEWARE
-// =================================
-app.use((req, res, next) => {
-  // Skip authentication for public endpoints
-  const isPublicPath = publicPaths.some(path => 
-    req.path === path || req.path.startsWith(`${path}/`)
-  );
+// ========================================
+// SECURITY MIDDLEWARE CONFIGURATION
+// ========================================
+function configureSecurityMiddleware() {
+  // Apply military-grade security middleware to all routes
+  app.use(MilitaryGradeSecurityMiddleware.secureRequest);
   
-  if (isPublicPath) return next();
-  
-  // API key verification
-  const apiKey = req.headers['x-api-key'];
-  
-  if (!apiKey) {
-    logger.warn('API key missing', { path: req.path, ip: req.ip });
-    return res.status(401).json({
+  // Enhanced security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "wss:", "https:"],
+        fontSrc: ["'self'", "https:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"]
+      }
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    },
+    noSniff: true,
+    frameguard: { action: 'deny' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+  }));
+
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // limit each IP to 100 requests per windowMs
+    message: {
       success: false,
-      error: 'Unauthorized',
-      message: 'API key required in X-API-Key header',
-      documentation: `${req.protocol}://${req.get('host')}/#security`
+      error: 'Rate Limit Exceeded',
+      message: 'Too many requests. Please try again later.'
+    },
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+  app.use(limiter);
+
+  // Basic CORS (will be enhanced after security config is loaded)
+  app.use(cors({
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  }));
+
+  // Cookie parser with basic security
+  app.use(cookieParser(process.env.JWT_SECRET || 'dev-secret-change-me'));
+
+  // Body parsing with size limits
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+  console.log('✅ Basic security middleware configured successfully');
+}
+
+// ========================================
+// ENHANCE SECURITY WITH CONFIGURATION
+// ========================================
+function enhanceSecurityWithConfig() {
+  if (!securityConfig) {
+    console.warn('⚠️ Security configuration not available, using basic security');
+    return;
+  }
+
+  try {
+    // Enhanced rate limiting
+    const rateLimitConfig = securityConfig.getNetworkConfig().rateLimit;
+    const enhancedLimiter = rateLimit({
+      windowMs: rateLimitConfig.windowMs,
+      max: rateLimitConfig.maxRequests,
+      skipSuccessfulRequests: rateLimitConfig.skipSuccessfulRequests,
+      skipFailedRequests: rateLimitConfig.skipFailedRequests,
+      message: {
+        success: false,
+        error: 'Enhanced Rate Limit Exceeded',
+        message: 'Too many requests. Please try again later.'
+      },
+      standardHeaders: true,
+      legacyHeaders: false
     });
+    
+    // Apply enhanced rate limiting to sensitive routes
+    app.use('/auth', enhancedLimiter);
+    app.use('/trade', enhancedLimiter);
+    app.use('/blockchain', enhancedLimiter);
+    
+    console.log('✅ Enhanced security configuration applied successfully');
+  } catch (error) {
+    console.warn('⚠️ Failed to apply enhanced security configuration:', error);
   }
-  
-  if (apiKey !== process.env.INTERNAL_API_KEY) {
-    logger.warn('Invalid API key attempt', { path: req.path, ip: req.ip });
-    return res.status(403).json({
-      success: false,
-      error: 'Forbidden',
-      message: 'Invalid API key',
-      support: 'contact@enerlectra.zm'
-    });
-  }
-  
-  next();
-});
+}
 
-// ======================
-// ROUTE HANDLERS
-// ======================
+// ========================================
+// ROUTE SECURITY CONFIGURATION
+// ========================================
+function configureRouteSecurity() {
+  // Public paths (no authentication required)
+  const publicPaths = [
+    '/health',
+    '/auth/login/start',
+    '/auth/login/verify',
+    '/auth/register',
+    '/auth/qr/issue',
+    '/auth/qr/redeem'
+  ];
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  const response: ApiResponse = {
-    success: true,
-    data: {
+  // Apply MFA requirement to sensitive routes
+  app.use('/admin', MilitaryGradeSecurityMiddleware.requireMFA);
+  app.use('/blockchain', MilitaryGradeSecurityMiddleware.requireQuantumSignature);
+  app.use('/trade', MilitaryGradeSecurityMiddleware.requireMFA);
+
+  // Apply enhanced security to all other routes
+  app.use('*', (req, res, next) => {
+    if (publicPaths.includes(req.path)) {
+      return next();
+    }
+    
+    // Apply additional security checks for protected routes
+    MilitaryGradeSecurityMiddleware.secureRequest(req, res, next);
+  });
+
+  console.log('✅ Route security configured successfully');
+}
+
+// ========================================
+// ROUTES WITH SECURITY
+// ========================================
+function configureRoutes() {
+  // Health check with security status
+  app.get('/health', (req, res) => {
+    const securityStatus = securityConfig.getSecurityStatus();
+    res.json({
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      service: 'Enerlectra Backend',
-      version: '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
-      uptime: process.uptime(),
-      dependencies: {
-        database: 'operational',
-        blockchain: process.env.BLOCKCHAIN_NODE_URL ? 'connected' : 'disconnected',
-        anthropic: anthropic ? 'ready' : 'disabled',
-        mobileMoney: process.env.MOBILE_MONEY_API_KEY ? 'configured' : 'missing'
-      }
-    },
-    message: 'Enerlectra energy trading platform is running'
-  };
-  res.json(response);
-});
-
-// API documentation endpoint
-app.get('/', (req, res) => {
-  const response: ApiResponse = {
-    success: true,
-    data: {
-      service: 'Enerlectra - African Energy Trading Platform',
-      version: '1.0.0',
-      description: 'Decentralized energy commerce with USSD mobile access',
-      endpoints: {
-        health: 'GET /health - Service health check',
-        wallet: 'GET /wallet/:userId - Get user wallet information',
-        trade: 'POST /trade - Trade energy between users',
-        lease: 'POST /lease - Lease energy from clusters',
-        carbon: 'GET /carbon/:userId - Get carbon footprint data',
-        ussd: 'POST /ussd - USSD mobile interface',
-        clusters: 'GET /cluster - Get all clusters, GET /cluster/:id - Get specific cluster',
-        transactions: 'GET /transactions/:userId - Get user transaction history',
-        market: 'GET /market/stats - Platform market statistics',
-        users: 'POST /users/register - Register new user, GET /users/:userId - Get user profile',
-        pricing: 'GET /pricing - Current market rates and pricing',
-        bulk: 'POST /trade/bulk/trade - Execute multiple trades, POST /trade/bulk/purchase - Bulk purchases',
-        schedule: 'POST /schedule/trade - Schedule future trade, GET /schedule/:userId - User scheduled transactions',
-        monitoring: 'GET /monitoring/clusters - Real-time cluster monitoring',
-        mobilemoney: 'POST /mobilemoney/ussd - Mobile money USSD interface',
-        alerts: 'POST /alerts/subscribe - Subscribe to price alerts, POST /alerts/ussd - Alert management via USSD',
-        ai: 'POST /ai/ask - Ask AI assistant'
-      },
-      businessLogic: {
-        energyRate: `${process.env.KWH_TO_ZMW_RATE || '1.2'} ZMW per kWh`,
-        carbonSavings: `${process.env.CARBON_SAVINGS_PER_KWH || '0.8'} kg CO2 saved per kWh traded`,
-        features: [
-          'Energy trading', 
-          'Cluster leasing', 
-          'Carbon tracking', 
-          'USSD access', 
-          'Mobile money integration',
-          'Price alerts',
-          'Bulk operations',
-          'Energy scheduling',
-          'Real-time monitoring',
-          'AI-powered assistance'
-        ]
-      },
       security: {
-        note: 'Protected endpoints require X-API-Key header',
-        publicEndpoints: publicPaths,
-        keyHeader: 'X-API-Key'
-      }
-    }
-  };
-  res.json(response);
-});
-
-// ======================
-// API ROUTES
-// ======================
-
-app.use('/wallet', walletRoutes);
-app.use('/trade', tradeRoutes);
-app.use('/lease', leaseRoutes);
-app.use('/carbon', carbonRoutes);
-app.use('/ussd', ussdRoutes);
-app.use('/cluster', clusterRoutes);
-app.use('/clusters', clustersRoutes);
-app.use('/transactions', transactionRoutes);
-app.use('/market', marketRoutes);
-app.use('/users', userRoutes);
-app.use('/pricing', pricingRoutes);
-app.use('/trade/bulk', bulkRoutes);
-app.use('/schedule', scheduleRoutes);
-app.use('/monitoring', monitoringRoutes);
-app.use('/mobilemoney', mobileMoneyRoutes);
-app.use('/alerts', alertRoutes);
-app.use('/ai', aiRoutes);
-app.use('/blockchain', blockchainRoutes);
-
-// ======================
-// ERROR HANDLING
-// ======================
-
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const errorId = `ERR-${Date.now()}`;
-  logger.error(`Unhandled error [${errorId}]: ${err.message}`, { 
-    stack: err.stack,
-    path: req.path,
-    method: req.method
+        status: securityStatus.overall,
+        quantum: securityStatus.quantum,
+        threatDetection: securityStatus.threatDetection,
+        blockchain: securityStatus.blockchain,
+        monitoring: securityStatus.monitoring
+      },
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    });
   });
-  
-  const response: ApiResponse = {
-    success: false,
-    error: 'Internal server error',
-    message: 'An unexpected error occurred',
-    errorId: errorId,
-    support: 'support@enerlectra.zm'
-  };
-  
-  res.status(500).json(response);
-});
 
-// 404 handler
-app.use((req, res) => {
-  logger.warn(`Route not found: ${req.method} ${req.originalUrl}`);
-  
-  const response: ApiResponse = {
-    success: false,
-    error: 'Not found',
-    message: `Route ${req.method} ${req.originalUrl} not found`,
-    suggestions: [
-      '/health - Service status',
-      '/ - API documentation'
-    ]
-  };
-  
-  res.status(404).json(response);
-});
+  // Apply routes with security middleware
+  app.use('/auth', authRoutes);
+  app.use('/trade', tradeRoutes);
+  app.use('/ai', aiRoutes);
+  app.use('/mobile-money', mobileMoneyRoutes);
+  app.use('/blockchain', blockchainRoutes);
 
-// ======================
-// SERVER INITIALIZATION
-// ======================
+  console.log('✅ Routes configured with security successfully');
+}
 
-// Initialize database and start server
-initializeDB().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
-    // ASCII Art Banner
-    logger.info(`
-    ███████╗███╗   ██╗███████╗██████╗ ██╗     ███████╗ ██████╗████████╗██████╗  █████╗ 
-    ██╔════╝████╗  ██║██╔════╝██╔══██╗██║     ██╔════╝██╔════╝╚══██╔══╝██╔══██╗██╔══██╗
-    █████╗  ██╔██╗ ██║█████╗  ██████╔╝██║     █████╗  ██║        ██║   ██████╔╝███████║
-    ██╔══╝  ██║╚██╗██║██╔══╝  ██╔══██╗██║     ██╔══╝  ██║        ██║   ██╔══██╗██╔══██║
-    ███████╗██║ ╚████║███████╗██║  ██║███████╗███████╗╚██████╗   ██║   ██║  ██║██║  ██║
-    ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝
-    `);
+// ========================================
+// WEBSOCKET SECURITY
+// ========================================
+function configureWebSocketSecurity() {
+  io.use((socket, next) => {
+    // Verify socket authentication
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
     
-    logger.info(`🔋 Enerlectra Backend Server v1.0.0`);
-    logger.info(`🌍 Listening on port ${PORT}`);
-    logger.info(`📱 USSD Interface: POST /ussd`);
-    logger.info(`💸 Mobile Money: POST /mobilemoney`);
-    logger.info(`🧠 AI Assistant: POST /ai/ask`);
-    logger.info(`💰 Energy Rate: ${process.env.KWH_TO_ZMW_RATE || '1.2'} ZMW per kWh`);
-    logger.info(`🌱 Carbon Impact: ${process.env.CARBON_SAVINGS_PER_KWH || '0.8'} kg CO2 saved per kWh`);
-    logger.info(`⚙️ Environment: ${process.env.NODE_ENV || 'development'}`);
-    logger.info(`📊 Health check: http://localhost:${PORT}/health`);
+    if (!token) {
+      return next(new Error('Authentication required'));
+    }
+
+    // Additional socket security checks
+    const clientIP = socket.handshake.address;
+    const userAgent = socket.handshake.headers['user-agent'];
     
-    // Security status report
-    logger.info('🔐 Security Status:');
-    logger.info(`• API Key Protection: ${process.env.INTERNAL_API_KEY ? '✅ Enabled' : '❌ DISABLED'}`);
-    logger.info(`• Anthropic AI: ${anthropic ? '✅ Ready' : '❌ Disabled'}`);
-    logger.info(`• Blockchain Node: ${process.env.BLOCKCHAIN_NODE_URL ? '✅ Connected' : '❌ Not configured'}`);
-    logger.info(`• Mobile Money: ${process.env.MOBILE_MONEY_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+    // Apply security validation
+    MilitaryGradeSecurityMiddleware.secureRequest(
+      { ip: clientIP, headers: { 'user-agent': userAgent } } as any,
+      {} as any,
+      next
+    );
+  });
+
+  io.on('connection', (socket) => {
+    console.log(`🔌 Secure WebSocket connection: ${socket.id}`);
     
-    // Warning if security is disabled
-    if (!process.env.INTERNAL_API_KEY) {
-      logger.warn('⚠️  WARNING: API key protection is disabled. Set INTERNAL_API_KEY in .env for production!');
+    socket.on('disconnect', () => {
+      console.log(`🔌 WebSocket disconnected: ${socket.id}`);
+    });
+  });
+
+  console.log('✅ WebSocket security configured successfully');
+}
+
+// ========================================
+// ERROR HANDLING WITH SECURITY
+// ========================================
+function configureErrorHandling() {
+  // Global error handler with security logging
+  app.use((error: any, req: any, res: any, next: any) => {
+    console.error('🚨 Security error:', {
+      error: error.message,
+      stack: error.stack,
+      ip: req.ip,
+      url: req.url,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+
+    // Don't expose internal errors to clients
+    res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+      message: 'An error occurred while processing your request'
+    });
+  });
+
+  // 404 handler
+  app.use('*', (req, res) => {
+    res.status(404).json({
+      success: false,
+      error: 'Not Found',
+      message: 'The requested resource was not found'
+    });
+  });
+
+  console.log('✅ Error handling configured successfully');
+}
+
+// ========================================
+// MAIN INITIALIZATION
+// ========================================
+async function initializeApplication() {
+  try {
+    console.log('🚀 Initializing Enerlectra with military-grade security...');
+    
+    // 1. Initialize security system first
+    await initializeSecurity();
+    
+      // 2. Configure basic security middleware
+  configureSecurityMiddleware();
+  
+  // 3. Enhance security with configuration
+  enhanceSecurityWithConfig();
+  
+  // 4. Configure route security
+  configureRouteSecurity();
+    
+    // 4. Configure routes
+    configureRoutes();
+    
+    // 5. Configure WebSocket security
+    configureWebSocketSecurity();
+    
+    // 6. Configure error handling
+    configureErrorHandling();
+    
+    // 7. Initialize blockchain service
+    if (securityConfig.getBlockchainConfig().enabled) {
+      await initializeBlockchainService();
     }
     
-    // Success message
-    logger.info('🚀 Enerlectra trading platform ready for business!');
+    console.log('🎉 Enerlectra application initialized successfully with military-grade security!');
+    console.log('🛡️  Security Features:');
+    console.log('   • Quantum-resistant cryptography');
+    console.log('   • Zero-trust network architecture');
+    console.log('   • AI-powered threat detection');
+    console.log('   • Quantum blockchain security');
+    console.log('   • Multi-factor authentication');
+    console.log('   • Real-time security monitoring');
+    
+  } catch (error) {
+    console.error('❌ Application initialization failed:', error);
+    process.exit(1);
+  }
+}
+
+// ========================================
+// START SERVER
+// ========================================
+const PORT = process.env.PORT || 5000;
+
+async function startServer() {
+  await initializeApplication();
+  
+  server.listen(PORT, () => {
+    console.log(`🚀 Enerlectra server running on port ${PORT}`);
+    console.log(`🔐 Security level: ${securityConfig.getSecurityStatus().overall}`);
+    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
   });
-}).catch(err => {
-  logger.error('❌ FATAL: Failed to start server', err);
-  process.exit(1);
-});
+}
 
-// ======================
-// GRACEFUL SHUTDOWN
-// ======================
-
+// Handle graceful shutdown
 process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  process.exit(0);
+  console.log('🔄 SIGTERM received, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
 
 process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  process.exit(0);
+  console.log('🔄 SIGINT received, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  logger.error('UNCAUGHT EXCEPTION! 💥 Shutting down...', err);
-  process.exit(1);
-});
-
-// Handle unhandled rejections
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('UNHANDLED REJECTION! 💥 Shutting down...', { reason, promise });
+// Start the application
+startServer().catch((error) => {
+  console.error('❌ Failed to start server:', error);
   process.exit(1);
 });

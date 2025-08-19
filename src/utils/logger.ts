@@ -1,17 +1,39 @@
-import winston from 'winston';
+// Simple logger utility for security system
+class Logger {
+  private static getTimestamp(): string {
+    return new Date().toISOString();
+  }
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.printf(({ timestamp, level, message }) => {
-      return `${timestamp} [${level}]: ${message}`;
-    })
-  ),
-  transports: [
-    new winston.transports.Console(),
-  ],
-});
+  static info(message: string, data?: any): void {
+    console.log(`[${this.getTimestamp()}] INFO: ${message}`, data || '');
+  }
 
-export default logger;
+  static warn(message: string, data?: any): void {
+    console.warn(`[${this.getTimestamp()}] WARN: ${message}`, data || '');
+  }
+
+  static error(message: string, data?: any): void {
+    console.error(`[${this.getTimestamp()}] ERROR: ${message}`, data || '');
+  }
+
+  static debug(message: string, data?: any): void {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${this.getTimestamp()}] DEBUG: ${message}`, data || '');
+    }
+  }
+
+  static security(message: string, data?: any): void {
+    console.log(`[${this.getTimestamp()}] 🔐 SECURITY: ${message}`, data || '');
+  }
+
+  static threat(message: string, data?: any): void {
+    console.warn(`[${this.getTimestamp()}] 🚨 THREAT: ${message}`, data || '');
+  }
+
+  static quantum(message: string, data?: any): void {
+    console.log(`[${this.getTimestamp()}] ⚛️ QUANTUM: ${message}`, data || '');
+  }
+}
+
+export default Logger;
 

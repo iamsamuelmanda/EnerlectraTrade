@@ -1,14 +1,21 @@
 {
-  "name": "innerlectra-frontend",
+  "name": "enerlectra-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite --port 3000",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:auth": "jest --testPathPattern=auth|AuthContext|EnhancedLoginModal",
+    "test:integration": "jest --testPathPattern=App|AuthenticationFlow",
+    "test:security": "node scripts/run-security-tests.js",
+    "test:all": "npm run test:security && npm run test",
+    "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.1",
@@ -37,6 +44,10 @@
     "zod": "^3.22.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.7.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
     "@types/leaflet": "^1.9.6",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
@@ -46,6 +57,9 @@
     "eslint": "^8.45.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
+    "jest": "^30.0.5",
+    "jest-environment-jsdom": "^30.0.5",
+    "ts-jest": "^29.4.1",
     "typescript": "^5.0.2",
     "vite": "^7.0.6"
   }

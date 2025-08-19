@@ -12,6 +12,8 @@ import {
   verifyWebhookSignature 
 } from '../services/momoService';
 import { User, USSDRequest, USSDResponse, ApiResponse } from '../types';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const crypto = require('crypto');
 
 const router = Router();
 
@@ -25,6 +27,66 @@ interface MobileMoneyTransaction {
   timestamp: string;
   reference?: string;
   description?: string;
+  idempotencyKey?: string;
+  webhookId?: string;
+}
+
+interface LedgerEntry {
+  id: string;
+  userId: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  currency: 'ZMW' | 'kWh';
+  description: string;
+  reference: string;
+  timestamp: string;
+  balanceBefore: number;
+  balanceAfter: number;
+  metadata?: any;
+}
+
+const LEDGER_FILE = 'ledger_entries.json';
+const WEBHOOK_LOGS_FILE = 'webhook_logs.json';
+
+// Helper function to create ledger entry
+function createLedgerEntry(
+  userId: string,
+  type: 'credit' | 'debit',
+  amount: number,
+  currency: 'ZMW' | 'kWh',
+  description: string,
+  reference: string,
+  balanceBefore: number,
+  metadata?: any
+): LedgerEntry {
+  return {
+    id: generateId(),
+    userId,
+    type,
+    amount,
+    currency,
+    description,
+    reference,
+    timestamp: new Date().toISOString(),
+    balanceBefore,
+    balanceAfter: type === 'credit' ? balanceBefore + amount : balanceBefore - amount,
+    metadata
+  };
+}
+
+// Helper function to log webhook
+function logWebhook(payload: any, signature: string, status: 'received' | 'processed' | 'failed', error?: string) {
+  const logs = readJsonFile<any>(WEBHOOK_LOGS_FILE);
+  logs.push({
+    id: generateId(),
+    timestamp: new Date().toISOString(),
+    payload,
+    signature,
+    status,
+    error,
+    ip: 'webhook'
+  });
+  writeJsonFile(WEBHOOK_LOGS_FILE, logs);
 }
 
 // POST /mobilemoney/ussd - Enhanced USSD with mobile money integration
@@ -210,34 +272,63 @@ router.post('/ussd', async (req: Request, res: Response) => {
             } else {
               try {
                 const reference = `DEP${Date.now()}`;
-                // Initiate real MTN deposit
-                await initiateDeposit(phoneNumber, depositAmount, reference);
+                const idempotencyKey = crypto.randomBytes(16).toString('hex');
                 
-                // Update user balance immediately (will be confirmed via callback)
-                updateUserBalance(users, user.id, depositAmount, 0);
-                
-                // Record mobile money transaction
+                // Check if this idempotency key was already used
                 const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
-                const mmTransaction: MobileMoneyTransaction = {
-                  id: generateId(),
-                  phoneNumber,
-                  type: 'deposit',
-                  amount: depositAmount,
-                  currency: 'ZMW',
-                  status: 'pending',
-                  timestamp: new Date().toISOString(),
-                  reference: reference,
-                  description: 'Mobile money deposit to Enerlectra wallet'
-                };
+                const existingTransaction = mmTransactions.find(t => t.idempotencyKey === idempotencyKey);
                 
-                mmTransactions.push(mmTransaction);
-                writeJsonFile('mobile_money_transactions.json', mmTransactions);
-                writeJsonFile('users.json', users);
+                if (existingTransaction) {
+                  ussdResponse = {
+                    text: `END Deposit already processed with reference: ${existingTransaction.reference}`,
+                    continueSession: false
+                  };
+                } else {
+                  // Initiate real MTN deposit
+                  await initiateDeposit(phoneNumber, depositAmount, reference);
+                  
+                  // Update user balance immediately (will be confirmed via callback)
+                  const balanceBefore = user.balanceZMW;
+                  updateUserBalance(users, user.id, depositAmount, 0);
+                  
+                  // Record mobile money transaction
+                  const mmTransaction: MobileMoneyTransaction = {
+                    id: generateId(),
+                    phoneNumber,
+                    type: 'deposit',
+                    amount: depositAmount,
+                    currency: 'ZMW',
+                    status: 'pending',
+                    timestamp: new Date().toISOString(),
+                    reference: reference,
+                    description: 'Mobile money deposit to Enerlectra wallet',
+                    idempotencyKey
+                  };
+                  
+                  mmTransactions.push(mmTransaction);
+                  writeJsonFile('mobile_money_transactions.json', mmTransactions);
+                  writeJsonFile('users.json', users);
 
-                ussdResponse = {
-                  text: `END Deposit Initiated! ⏳\n\nAmount: ${depositAmount} ZMW\nReference: ${mmTransaction.reference}\n\nDial *151# to confirm payment. Balance will update after confirmation.`,
-                  continueSession: false
-                };
+                  // Create ledger entry
+                  const ledger = readJsonFile<LedgerEntry>(LEDGER_FILE);
+                  const ledgerEntry = createLedgerEntry(
+                    user.id,
+                    'credit',
+                    depositAmount,
+                    'ZMW',
+                    'Mobile money deposit',
+                    reference,
+                    balanceBefore,
+                    { phoneNumber, provider: 'MTN', idempotencyKey }
+                  );
+                  ledger.push(ledgerEntry);
+                  writeJsonFile(LEDGER_FILE, ledger);
+
+                  ussdResponse = {
+                    text: `END Deposit Initiated! ⏳\n\nAmount: ${depositAmount} ZMW\nReference: ${mmTransaction.reference}\n\nDial *151# to confirm payment. Balance will update after confirmation.`,
+                    continueSession: false
+                  };
+                }
               } catch (error: any) {
                 ussdResponse = {
                   text: `END Deposit Failed: ${error.message}`,
@@ -258,34 +349,63 @@ router.post('/ussd', async (req: Request, res: Response) => {
             } else {
               try {
                 const reference = `WTH${Date.now()}`;
-                // Initiate real MTN withdrawal
-                await initiateWithdrawal(phoneNumber, withdrawAmount, reference);
+                const idempotencyKey = crypto.randomBytes(16).toString('hex');
                 
-                // Update user balance immediately
-                updateUserBalance(users, user.id, -withdrawAmount, 0);
-                
-                // Record mobile money transaction
+                // Check idempotency
                 const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
-                const mmTransaction: MobileMoneyTransaction = {
-                  id: generateId(),
-                  phoneNumber,
-                  type: 'withdrawal',
-                  amount: withdrawAmount,
-                  currency: 'ZMW',
-                  status: 'pending',
-                  timestamp: new Date().toISOString(),
-                  reference: reference,
-                  description: 'Withdrawal from Enerlectra wallet'
-                };
+                const existingTransaction = mmTransactions.find(t => t.idempotencyKey === idempotencyKey);
                 
-                mmTransactions.push(mmTransaction);
-                writeJsonFile('mobile_money_transactions.json', mmTransactions);
-                writeJsonFile('users.json', users);
+                if (existingTransaction) {
+                  ussdResponse = {
+                    text: `END Withdrawal already processed with reference: ${existingTransaction.reference}`,
+                    continueSession: false
+                  };
+                } else {
+                  // Initiate real MTN withdrawal
+                  await initiateWithdrawal(phoneNumber, withdrawAmount, reference);
+                  
+                  // Update user balance immediately
+                  const balanceBefore = user.balanceZMW;
+                  updateUserBalance(users, user.id, -withdrawAmount, 0);
+                  
+                  // Record mobile money transaction
+                  const mmTransaction: MobileMoneyTransaction = {
+                    id: generateId(),
+                    phoneNumber,
+                    type: 'withdrawal',
+                    amount: withdrawAmount,
+                    currency: 'ZMW',
+                    status: 'pending',
+                    timestamp: new Date().toISOString(),
+                    reference: reference,
+                    description: 'Withdrawal from Enerlectra wallet',
+                    idempotencyKey
+                  };
+                  
+                  mmTransactions.push(mmTransaction);
+                  writeJsonFile('mobile_money_transactions.json', mmTransactions);
+                  writeJsonFile('users.json', users);
 
-                ussdResponse = {
-                  text: `END Withdrawal Initiated! ⏳\n\nAmount: ${withdrawAmount} ZMW\nReference: ${mmTransaction.reference}\n\nYou will receive funds shortly.`,
-                  continueSession: false
-                };
+                  // Create ledger entry
+                  const ledger = readJsonFile<LedgerEntry>(LEDGER_FILE);
+                  const ledgerEntry = createLedgerEntry(
+                    user.id,
+                    'debit',
+                    withdrawAmount,
+                    'ZMW',
+                    'Mobile money withdrawal',
+                    reference,
+                    balanceBefore,
+                    { phoneNumber, provider: 'MTN', idempotencyKey }
+                  );
+                  ledger.push(ledgerEntry);
+                  writeJsonFile(LEDGER_FILE, ledger);
+
+                  ussdResponse = {
+                    text: `END Withdrawal Initiated! ⏳\n\nAmount: ${withdrawAmount} ZMW\nReference: ${mmTransaction.reference}\n\nYou will receive funds shortly.`,
+                    continueSession: false
+                  };
+                }
               } catch (error: any) {
                 ussdResponse = {
                   text: `END Withdrawal Failed: ${error.message}`,
@@ -349,13 +469,16 @@ router.post('/ussd', async (req: Request, res: Response) => {
               users.push(recipient);
             }
 
-            // Execute transfer
+            // Execute transfer with ledger entries
+            const transferRef = `TXF${Date.now()}`;
+            const senderBalanceBefore = user.balanceZMW;
+            const recipientBalanceBefore = recipient.balanceZMW;
+            
             updateUserBalance(users, user.id, -sendAmount, 0);
             updateUserBalance(users, recipient.id, sendAmount, 0);
             
             // Record transactions for both users
             const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
-            const transferRef = `TXF${Date.now()}`;
             
             mmTransactions.push({
               id: generateId(),
@@ -383,6 +506,37 @@ router.post('/ussd', async (req: Request, res: Response) => {
             
             writeJsonFile('mobile_money_transactions.json', mmTransactions);
             writeJsonFile('users.json', users);
+
+            // Create ledger entries
+            const ledger = readJsonFile<LedgerEntry>(LEDGER_FILE);
+            
+            // Sender debit
+            const senderEntry = createLedgerEntry(
+              user.id,
+              'debit',
+              sendAmount,
+              'ZMW',
+              `Transfer to ${recipientPhone}`,
+              transferRef,
+              senderBalanceBefore,
+              { recipientPhone, type: 'transfer' }
+            );
+            ledger.push(senderEntry);
+            
+            // Recipient credit
+            const recipientEntry = createLedgerEntry(
+              recipient.id,
+              'credit',
+              sendAmount,
+              'ZMW',
+              `Transfer from ${phoneNumber}`,
+              transferRef,
+              recipientBalanceBefore,
+              { senderPhone: phoneNumber, type: 'transfer' }
+            );
+            ledger.push(recipientEntry);
+            
+            writeJsonFile(LEDGER_FILE, ledger);
 
             ussdResponse = {
               text: `END Transfer Successful! ✅\n\nSent: ${sendAmount} ZMW\nTo: ${recipientPhone}\nReference: ${transferRef}\nNew Balance: ${user.balanceZMW.toFixed(2)} ZMW`,
@@ -424,17 +578,31 @@ router.post('/ussd', async (req: Request, res: Response) => {
   }
 });
 
-// MTN Callback Handler
+// MTN Callback Handler with enhanced security and idempotency
 router.post('/callback', (req: Request, res: Response) => {
   try {
     const signature = req.headers['x-momo-signature'] as string;
     const body = JSON.stringify(req.body);
     
+    // Log webhook receipt
+    logWebhook(req.body, signature, 'received');
+    
     if (!verifyWebhookSignature(body, signature)) {
+      logWebhook(req.body, signature, 'failed', 'Invalid signature');
       return res.status(401).send('Unauthorized');
     }
     
-    const { reference, status, amount } = req.body;
+    const { reference, status, amount, webhookId } = req.body;
+    
+    // Check idempotency using webhookId
+    if (webhookId) {
+      const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
+      const existingWebhook = mmTransactions.find(t => t.webhookId === webhookId);
+      if (existingWebhook) {
+        logWebhook(req.body, signature, 'processed', 'Webhook already processed');
+        return res.status(200).send('OK - Already processed');
+      }
+    }
     
     // Update transaction status
     const mmTransactions = readJsonFile<MobileMoneyTransaction>('mobile_money_transactions.json');
@@ -442,6 +610,8 @@ router.post('/callback', (req: Request, res: Response) => {
     
     if (transaction) {
       transaction.status = status === 'SUCCESSFUL' ? 'completed' : 'failed';
+      if (webhookId) transaction.webhookId = webhookId;
+      
       writeJsonFile('mobile_money_transactions.json', mmTransactions);
       
       // Update user balance if deposit completed
@@ -450,16 +620,69 @@ router.post('/callback', (req: Request, res: Response) => {
         const user = findUserByPhone(users, transaction.phoneNumber);
         
         if (user) {
+          // Create ledger entry for confirmed deposit
+          const ledger = readJsonFile<LedgerEntry>(LEDGER_FILE);
+          const balanceBefore = user.balanceZMW;
+          
+          const ledgerEntry = createLedgerEntry(
+            user.id,
+            'credit',
+            amount,
+            'ZMW',
+            'Mobile money deposit confirmed',
+            reference,
+            balanceBefore,
+            { phoneNumber: transaction.phoneNumber, provider: 'MTN', webhookId }
+          );
+          ledger.push(ledgerEntry);
+          writeJsonFile(LEDGER_FILE, ledger);
+          
+          // Update user balance
           updateUserBalance(users, user.id, amount, 0);
           writeJsonFile('users.json', users);
         }
       }
+      
+      logWebhook(req.body, signature, 'processed');
+    } else {
+      logWebhook(req.body, signature, 'failed', 'Transaction not found');
     }
     
     res.status(200).send('OK');
   } catch (error) {
     console.error('Callback error:', error);
+    logWebhook(req.body || {}, req.headers['x-momo-signature'] || '', 'failed', error.message);
     res.status(500).send('Internal Server Error');
+  }
+});
+
+// GET /mobilemoney/ledger/:userId - Get user's ledger entries
+router.get('/ledger/:userId', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const ledger = readJsonFile<LedgerEntry>(LEDGER_FILE);
+    
+    const userEntries = ledger.filter(entry => entry.userId === userId);
+    
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        entries: userEntries,
+        summary: {
+          totalCredits: userEntries.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0),
+          totalDebits: userEntries.filter(e => e.type === 'debit').reduce((sum, e) => sum + e.amount, 0),
+          currentBalance: userEntries.length > 0 ? userEntries[userEntries.length - 1].balanceAfter : 0
+        }
+      }
+    };
+    
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse = {
+      success: false,
+      error: 'Failed to fetch ledger'
+    };
+    res.status(500).json(response);
   }
 });
 

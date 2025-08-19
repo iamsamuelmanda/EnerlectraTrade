@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // POST /alerts/subscribe - Subscribe to price alerts
 router.post('/subscribe', (req, res) => {
@@ -22,7 +22,7 @@ router.post('/subscribe', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {
@@ -33,7 +33,7 @@ router.post('/subscribe', (req, res) => {
         }
         // Validate cluster if specified
         if (clusterId) {
-            const clusters = (0, utils_1.readJsonFile)('clusters.json');
+            const clusters = (0, common_1.readJsonFile)('clusters.json');
             const cluster = clusters.find(c => c.id === clusterId);
             if (!cluster) {
                 const response = {
@@ -43,9 +43,9 @@ router.post('/subscribe', (req, res) => {
                 return res.status(404).json(response);
             }
         }
-        const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
+        const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
         const newAlert = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             userId,
             phoneNumber,
             type,
@@ -55,7 +55,7 @@ router.post('/subscribe', (req, res) => {
             createdAt: new Date().toISOString()
         };
         priceAlerts.push(newAlert);
-        (0, utils_1.writeJsonFile)('price_alerts.json', priceAlerts);
+        (0, common_1.writeJsonFile)('price_alerts.json', priceAlerts);
         const response = {
             success: true,
             data: {
@@ -83,7 +83,7 @@ router.post('/subscribe', (req, res) => {
 router.get('/:userId', (req, res) => {
     try {
         const { userId } = req.params;
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {
@@ -92,9 +92,9 @@ router.get('/:userId', (req, res) => {
             };
             return res.status(404).json(response);
         }
-        const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
+        const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
         const userAlerts = priceAlerts.filter(alert => alert.userId === userId);
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
         const alertsWithDetails = userAlerts.map(alert => {
             const cluster = alert.clusterId ? clusters.find(c => c.id === alert.clusterId) : null;
             return {
@@ -137,7 +137,7 @@ router.delete('/:alertId', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
+        const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
         const alertIndex = priceAlerts.findIndex(a => a.id === alertId && a.userId === userId);
         if (alertIndex === -1) {
             const response = {
@@ -147,7 +147,7 @@ router.delete('/:alertId', (req, res) => {
             return res.status(404).json(response);
         }
         priceAlerts[alertIndex].isActive = false;
-        (0, utils_1.writeJsonFile)('price_alerts.json', priceAlerts);
+        (0, common_1.writeJsonFile)('price_alerts.json', priceAlerts);
         const response = {
             success: true,
             message: 'Alert unsubscribed successfully'
@@ -166,10 +166,10 @@ router.delete('/:alertId', (req, res) => {
 // POST /alerts/check - Check and trigger alerts (internal/cron endpoint)
 router.post('/check', (req, res) => {
     try {
-        const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
-        const notificationHistory = (0, utils_1.readJsonFile)('notification_history.json');
+        const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
+        const notificationHistory = (0, common_1.readJsonFile)('notification_history.json');
         const triggeredAlerts = [];
         const now = new Date().toISOString();
         // Calculate market conditions
@@ -226,7 +226,7 @@ router.post('/check', (req, res) => {
                 priceAlerts[alertIndex].message = alertMessage;
                 // Add to notification history
                 const notification = {
-                    id: (0, utils_1.generateId)(),
+                    id: (0, common_1.generateId)(),
                     phoneNumber: alert.phoneNumber,
                     type: 'price_alert',
                     message: alertMessage,
@@ -243,8 +243,8 @@ router.post('/check', (req, res) => {
             }
         }
         // Save changes
-        (0, utils_1.writeJsonFile)('price_alerts.json', priceAlerts);
-        (0, utils_1.writeJsonFile)('notification_history.json', notificationHistory);
+        (0, common_1.writeJsonFile)('price_alerts.json', priceAlerts);
+        (0, common_1.writeJsonFile)('notification_history.json', notificationHistory);
         const response = {
             success: true,
             data: {
@@ -282,8 +282,8 @@ router.post('/ussd', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const user = (0, utils_1.findUserByPhone)(users, phoneNumber);
+        const users = (0, common_1.readJsonFile)('users.json');
+        const user = (0, common_1.findUserByPhone)(users, phoneNumber);
         if (!user) {
             const response = {
                 success: false,
@@ -316,7 +316,7 @@ router.post('/ussd', (req, res) => {
                         break;
                     case '2':
                         // View alerts
-                        const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
+                        const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
                         const userAlerts = priceAlerts.filter(a => a.userId === user.id && a.isActive);
                         let alertsText = 'END Your Active Alerts:\n\n';
                         if (userAlerts.length === 0) {
@@ -337,7 +337,7 @@ router.post('/ussd', (req, res) => {
                         break;
                     case '3':
                         // Market alerts
-                        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+                        const clusters = (0, common_1.readJsonFile)('clusters.json');
                         const totalCapacity = clusters.reduce((sum, c) => sum + c.capacityKWh, 0);
                         const totalAvailable = clusters.reduce((sum, c) => sum + c.availableKWh, 0);
                         const utilizationRate = ((totalCapacity - totalAvailable) / totalCapacity) * 100;
@@ -364,7 +364,7 @@ router.post('/ussd', (req, res) => {
                         break;
                     case '4':
                         // Alert history
-                        const notificationHistory = (0, utils_1.readJsonFile)('notification_history.json');
+                        const notificationHistory = (0, common_1.readJsonFile)('notification_history.json');
                         const userNotifications = notificationHistory
                             .filter(n => n.phoneNumber === phoneNumber)
                             .slice(-5);
@@ -415,9 +415,9 @@ router.post('/ussd', (req, res) => {
                         }
                         else {
                             // For supply/demand alerts, no price needed
-                            const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
+                            const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
                             const newAlert = {
-                                id: (0, utils_1.generateId)(),
+                                id: (0, common_1.generateId)(),
                                 userId: user.id,
                                 phoneNumber,
                                 type: selectedType,
@@ -425,7 +425,7 @@ router.post('/ussd', (req, res) => {
                                 createdAt: new Date().toISOString()
                             };
                             priceAlerts.push(newAlert);
-                            (0, utils_1.writeJsonFile)('price_alerts.json', priceAlerts);
+                            (0, common_1.writeJsonFile)('price_alerts.json', priceAlerts);
                             ussdResponse = {
                                 text: `END Alert Created! ✅\n\nType: ${selectedType.replace('_', ' ').toUpperCase()}\nStatus: Active\n\nYou'll receive SMS notifications when triggered.`,
                                 continueSession: false
@@ -458,9 +458,9 @@ router.post('/ussd', (req, res) => {
                         };
                     }
                     else {
-                        const priceAlerts = (0, utils_1.readJsonFile)('price_alerts.json');
+                        const priceAlerts = (0, common_1.readJsonFile)('price_alerts.json');
                         const newAlert = {
-                            id: (0, utils_1.generateId)(),
+                            id: (0, common_1.generateId)(),
                             userId: user.id,
                             phoneNumber,
                             type: alertType,
@@ -469,7 +469,7 @@ router.post('/ussd', (req, res) => {
                             createdAt: new Date().toISOString()
                         };
                         priceAlerts.push(newAlert);
-                        (0, utils_1.writeJsonFile)('price_alerts.json', priceAlerts);
+                        (0, common_1.writeJsonFile)('price_alerts.json', priceAlerts);
                         ussdResponse = {
                             text: `END Alert Created! ✅\n\nType: ${alertType.replace('_', ' ').toUpperCase()}\nTarget: ${targetPrice} ZMW/kWh\nStatus: Active\n\nYou'll receive SMS when price ${alertType === 'price_drop' ? 'drops below' : 'rises above'} your target.`,
                             continueSession: false

@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // GET /cluster/:id - Get cluster information
 router.get('/:id', (req, res) => {
     try {
         const { id } = req.params;
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
         const cluster = clusters.find(c => c.id === id);
         if (!cluster) {
             const response = {
@@ -38,7 +38,7 @@ router.get('/:id', (req, res) => {
 // GET /cluster - Get all clusters
 router.get('/', (req, res) => {
     try {
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
         const clustersWithStats = clusters.map(cluster => ({
             ...cluster,
             utilizationPercent: Math.round(((cluster.capacityKWh - cluster.availableKWh) / cluster.capacityKWh) * 100),

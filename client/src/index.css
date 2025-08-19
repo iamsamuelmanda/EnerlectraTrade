@@ -2,16 +2,64 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
+/* Professional CSS Variables */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 142 76% 36%;
+  --primary-foreground: 355 20% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 84% 4.9%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222.2 84% 4.9%;
+  --destructive: 0 72.2% 50.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 142 76% 36%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 142 76% 36%;
+  --primary-foreground: 222.2 84% 4.9%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 142 76% 36%;
+}
+
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
-  
+
   body {
-    @apply bg-background text-foreground font-sans;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', ui-sans-serif, system-ui;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-  
+
   html {
     scroll-behavior: smooth;
   }
@@ -19,59 +67,259 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
   }
-  
+  .btn:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  .btn:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   .btn-primary {
-    @apply btn bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600;
+    background-color: rgb(22 163 74);
+    color: white;
   }
-  
+  .btn-primary:hover {
+    background-color: rgb(21 128 61);
+  }
+  .dark .btn-primary {
+    background-color: rgb(34 197 94);
+  }
+  .dark .btn-primary:hover {
+    background-color: rgb(22 163 74);
+  }
+
   .btn-secondary {
-    @apply btn bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700;
+    background-color: rgb(243 244 246);
+    color: rgb(17 24 39);
   }
-  
+  .btn-secondary:hover {
+    background-color: rgb(229 231 235);
+  }
+  .dark .btn-secondary {
+    background-color: rgb(31 41 55);
+    color: rgb(243 244 246);
+  }
+  .dark .btn-secondary:hover {
+    background-color: rgb(55 65 81);
+  }
+
   .btn-outline {
-    @apply btn border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700;
+    border: 1px solid rgb(209 213 219);
+    background-color: white;
+    color: rgb(55 65 81);
   }
-  
+  .btn-outline:hover {
+    background-color: rgb(249 250 251);
+  }
+  .dark .btn-outline {
+    border-color: rgb(75 85 99);
+    background-color: rgb(31 41 55);
+    color: rgb(209 213 219);
+  }
+  .dark .btn-outline:hover {
+    background-color: rgb(55 65 81);
+  }
+
   .btn-sm {
-    @apply h-8 px-3 text-xs;
+    height: 2rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    font-size: 0.75rem;
   }
-  
+
   .btn-md {
-    @apply h-10 px-4 py-2;
+    height: 2.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
-  
+
   .btn-lg {
-    @apply h-12 px-8;
+    height: 3rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
   }
   
   .card {
-    @apply rounded-lg border bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900;
+    border-radius: 0.5rem;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
   }
-  
+
   .input {
-    @apply flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-400;
+    display: flex;
+    height: 2.5rem;
+    width: 100%;
+    border-radius: 0.375rem;
+    border: 1px solid hsl(var(--input));
+    background-color: hsl(var(--background));
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.875rem;
+    outline-offset: 2px;
   }
-  
-  .gradient-bg {
-    @apply bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700;
+  .input::placeholder {
+    color: hsl(var(--muted-foreground));
   }
-  
-  .energy-glow {
-    @apply shadow-lg shadow-energy-solar/20;
+  .input:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
   }
-  
-  .cluster-card {
-    @apply card hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer;
+  .input:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
-  
-  .stat-card {
-    @apply card text-center;
+  .input:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
-  
+
+  /* Professional Energy Trading Components */
+  .energy-gradient {
+    background: linear-gradient(to bottom right, rgb(16 185 129), rgb(13 148 136), rgb(14 116 144));
+  }
+
+  .trading-gradient {
+    background: linear-gradient(to right, rgb(37 99 235), rgb(147 51 234), rgb(99 102 241));
+  }
+
+  .success-gradient {
+    background: linear-gradient(to right, rgb(52 211 153), rgb(22 163 74));
+  }
+
+  .warning-gradient {
+    background: linear-gradient(to right, rgb(251 191 36), rgb(251 146 60));
+  }
+
+  .danger-gradient {
+    background: linear-gradient(to right, rgb(248 113 113), rgb(236 72 153));
+  }
+
+  .premium-glow {
+    box-shadow: 0 10px 15px -3px rgb(16 185 129 / 0.25), 0 4px 6px -4px rgb(16 185 129 / 0.25);
+  }
+  .dark .premium-glow {
+    box-shadow: 0 10px 15px -3px rgb(52 211 153 / 0.2), 0 4px 6px -4px rgb(52 211 153 / 0.2);
+  }
+
+  .trading-card {
+    border-radius: 0.5rem;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    padding: 1.5rem;
+    transition: all 300ms;
+    cursor: pointer;
+    border-left: 4px solid rgb(16 185 129);
+  }
+  .trading-card:hover {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    transform: scale(1.02);
+  }
+
+  .energy-card {
+    border-radius: 0.5rem;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    padding: 1.5rem;
+    transition: all 300ms;
+  }
+  .energy-card:hover {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    transform: translateY(-0.25rem);
+  }
+
+  .stats-card {
+    border-radius: 0.5rem;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    text-align: center;
+    padding: 2rem;
+    transition: all 300ms;
+  }
+  .stats-card:hover {
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  }
+
   .loading-spinner {
-    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-600;
+    animation: spin 1s linear infinite;
+    border-radius: 9999px;
+    height: 2rem;
+    width: 2rem;
+    border: 2px solid rgb(209 213 219);
+    border-top-color: rgb(16 185 129);
+  }
+
+  /* Professional Status Indicators */
+  .status-active {
+    background-color: rgb(209 250 229);
+    color: rgb(6 78 59);
+  }
+  .dark .status-active {
+    background-color: rgb(6 78 59);
+    color: rgb(167 243 208);
+  }
+
+  .status-pending {
+    background-color: rgb(254 243 199);
+    color: rgb(146 64 14);
+  }
+  .dark .status-pending {
+    background-color: rgb(146 64 14);
+    color: rgb(253 230 138);
+  }
+
+  .status-error {
+    background-color: rgb(254 226 226);
+    color: rgb(153 27 27);
+  }
+  .dark .status-error {
+    background-color: rgb(153 27 27);
+    color: rgb(254 202 202);
+  }
+
+  .status-success {
+    background-color: rgb(220 252 231);
+    color: rgb(21 128 61);
+  }
+  .dark .status-success {
+    background-color: rgb(21 128 61);
+    color: rgb(187 247 208);
+  }
+
+  /* Define bg-card utility class */
+  .bg-card {
+    background-color: hsl(var(--card));
+  }
+
+  .text-card-foreground {
+    color: hsl(var(--card-foreground));
   }
 }
 
@@ -79,81 +327,138 @@
   .text-balance {
     text-wrap: balance;
   }
-  
+
   .text-pretty {
     text-wrap: pretty;
   }
-  
-  /* Custom scrollbar */
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
+
+  /* Premium Scrollbar */
+  .premium-scrollbar::-webkit-scrollbar {
+    width: 8px;
   }
-  
-  .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-gray-100 dark:bg-gray-800;
+
+  .premium-scrollbar::-webkit-scrollbar-track {
+    background-color: rgb(243 244 246);
+    border-radius: 9999px;
   }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  .dark .premium-scrollbar::-webkit-scrollbar-track {
+    background-color: rgb(31 41 55);
   }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    @apply bg-gray-400 dark:bg-gray-500;
+
+  .premium-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(16 185 129);
+    border-radius: 9999px;
+  }
+  .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(5 150 105);
+  }
+  .dark .premium-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(5 150 105);
+  }
+  .dark .premium-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(16 185 129);
   }
 }
 
-/* Animation keyframes */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+/* Premium Animations */
+@keyframes energyPulse {
+  0%, 100% { 
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% { 
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 5px rgba(14, 165, 233, 0.5); }
-  50% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.8), 0 0 30px rgba(14, 165, 233, 0.6); }
+@keyframes tradingGlow {
+  0%, 100% { 
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.6), 0 0 60px rgba(16, 185, 129, 0.4);
+  }
 }
 
-.float {
-  animation: float 6s ease-in-out infinite;
+@keyframes slideInUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
-.pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
+@keyframes fadeInScale {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-/* Responsive utilities */
+.energy-pulse {
+  animation: energyPulse 3s ease-in-out infinite;
+}
+
+.trading-glow {
+  animation: tradingGlow 2s ease-in-out infinite;
+}
+
+.slide-in-up {
+  animation: slideInUp 0.6s ease-out;
+}
+
+.fade-in-scale {
+  animation: fadeInScale 0.4s ease-out;
+}
+
+/* Professional Energy Colors */
+.text-energy-primary {
+  color: rgb(5 150 105);
+}
+.dark .text-energy-primary {
+  color: rgb(52 211 153);
+}
+
+.text-energy-secondary {
+  color: rgb(13 148 136);
+}
+.dark .text-energy-secondary {
+  color: rgb(45 212 191);
+}
+
+.text-trading-primary {
+  color: rgb(37 99 235);
+}
+.dark .text-trading-primary {
+  color: rgb(96 165 250);
+}
+
+.text-trading-secondary {
+  color: rgb(147 51 234);
+}
+.dark .text-trading-secondary {
+  color: rgb(196 181 253);
+}
+
+/* Mobile Optimizations */
 @media (max-width: 640px) {
   .mobile-hide {
-    @apply hidden;
+    display: none;
   }
-}
-
-/* Energy-specific styling */
-.energy-solar {
-  @apply text-energy-solar;
-}
-
-.energy-wind {
-  @apply text-energy-wind;
-}
-
-.energy-hydro {
-  @apply text-energy-hydro;
-}
-
-.energy-battery {
-  @apply text-energy-battery;
-}
-
-/* Zambian flag colors */
-.zambia-green {
-  @apply text-zambia-green;
-}
-
-.zambia-orange {
-  @apply text-zambia-orange;
-}
-
-.zambia-red {
-  @apply text-zambia-red;
+  
+  .mobile-full {
+    width: 100%;
+  }
+  
+  .mobile-text-sm {
+    font-size: 0.875rem;
+  }
 }

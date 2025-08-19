@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: enerlectra-backend
+    env: node
+    buildCommand: npm run build:backend
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health
+    autoDeploy: true 

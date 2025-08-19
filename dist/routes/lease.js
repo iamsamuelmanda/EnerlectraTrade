@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // POST /lease - Lease energy from a cluster
 router.post('/', (req, res) => {
@@ -15,9 +15,9 @@ router.post('/', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         const user = users.find(u => u.id === userId);
         const cluster = clusters.find(c => c.id === clusterId);
         if (!user) {
@@ -60,12 +60,12 @@ router.post('/', (req, res) => {
             return res.status(400).json(response);
         }
         // Execute lease
-        (0, utils_1.updateUserBalance)(users, userId, -amountZMW, kWh);
+        (0, common_1.updateUserBalance)(users, userId, -amountZMW, kWh);
         // Update cluster availability
         const clusterIndex = clusters.findIndex(c => c.id === clusterId);
         clusters[clusterIndex].availableKWh -= kWh;
         // Create transaction record
-        const transaction = (0, utils_1.createTransaction)('lease', {
+        const transaction = (0, common_1.createTransaction)('lease', {
             userId,
             clusterId,
             kWh,
@@ -73,9 +73,9 @@ router.post('/', (req, res) => {
         });
         transactions.push(transaction);
         // Save changes
-        (0, utils_1.writeJsonFile)('users.json', users);
-        (0, utils_1.writeJsonFile)('clusters.json', clusters);
-        (0, utils_1.writeJsonFile)('transactions.json', transactions);
+        (0, common_1.writeJsonFile)('users.json', users);
+        (0, common_1.writeJsonFile)('clusters.json', clusters);
+        (0, common_1.writeJsonFile)('transactions.json', transactions);
         const response = {
             success: true,
             data: {

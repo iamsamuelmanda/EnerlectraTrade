@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // GET /wallet/:userId - Get user wallet information
 router.get('/:userId', (req, res) => {
     try {
         const { userId } = req.params;
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {

@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // GET /pricing - Current market rates and pricing information
 router.get('/', (req, res) => {
     try {
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         // Base energy rate
         const baseRate = 1.2; // ZMW per kWh
         // Calculate market dynamics
@@ -121,8 +121,8 @@ router.get('/', (req, res) => {
 router.get('/history', (req, res) => {
     try {
         const { hours = 24, clusterId } = req.query;
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
         const hoursBack = parseInt(hours);
         const timeThreshold = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
         let relevantTransactions = transactions.filter(t => new Date(t.timestamp) > timeThreshold && t.type === 'trade');
