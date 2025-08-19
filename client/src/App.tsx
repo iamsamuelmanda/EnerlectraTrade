@@ -6,6 +6,8 @@ import { useAuth } from './contexts/AuthContext';
 import { useSocket } from './contexts/SocketContext';
 import EnhancedLoginModal from './components/EnhancedLoginModal';
 import AIInsightsPanel from './components/AIInsightsPanel';
+import EnerlectraLogo from './components/EnerlectraLogo';
+import LoadingScreen from './components/LoadingScreen';
 import toast from 'react-hot-toast';
 
 type ConnectionStatus = 'checking' | 'connected' | 'offline' | 'error';
@@ -50,9 +52,27 @@ const EnerlectraDashboard = () => {
   const [listings, setListings] = useState<EnergyListing[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   const { user, isAuthenticated, logout } = useAuth();
   const { isConnected: wsConnected } = useSocket();
+
+  // Simulate loading progress
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(timer);
+          setIsLoading(false);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 200);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Test backend connection
   useEffect(() => {
@@ -74,8 +94,10 @@ const EnerlectraDashboard = () => {
       }
     };
 
-    testConnection();
-  }, []);
+    if (!isLoading) {
+      testConnection();
+    }
+  }, [isLoading]);
 
   // WebSocket event listeners for real-time updates
   useEffect(() => {
@@ -204,21 +226,28 @@ const EnerlectraDashboard = () => {
     </span>
   );
 
+  // Show loading screen while initializing
+  if (isLoading) {
+    return <LoadingScreen progress={loadingProgress} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
+            <div className="flex items-center space-x-4">
+              {/* Logo */}
+              <EnerlectraLogo size="small" animated={false} showTagline={false} />
+              
+              {/* Company Info */}
               <div>
                 <h1 className="text-2xl font-bold text-white">Enerlectra</h1>
-                <p className="text-slate-400 text-sm">African Energy Trading Platform</p>
+                <p className="text-slate-400 text-sm">The Energy Internet</p>
               </div>
             </div>
+            
             <div className="flex items-center space-x-3">
               <ConnectionBadge />
               <WebSocketBadge />
@@ -259,12 +288,17 @@ const EnerlectraDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Welcome Section */}
         <div className="text-center mb-8">
+          <div className="mb-6">
+            <EnerlectraLogo size="large" animated={true} showTagline={true} />
+          </div>
+          
           <h2 className="text-3xl font-bold text-white mb-4">
-            Welcome to Enerlectra
+            Welcome to The Energy Internet
           </h2>
           <p className="text-slate-300 text-lg mb-6">
-            Join the future of African energy trading
+            Join the future of African energy trading with blockchain-powered efficiency
           </p>
+          
           {!isAuthenticated ? (
             <button 
               onClick={() => setShowLoginModal(true)}
