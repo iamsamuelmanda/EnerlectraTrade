@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // POST /trade - Trade energy between users
 router.post('/', (req, res) => {
@@ -22,8 +22,8 @@ router.post('/', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         const buyer = users.find(u => u.id === buyerId);
         const seller = users.find(u => u.id === sellerId);
         if (!buyer || !seller) {
@@ -33,7 +33,7 @@ router.post('/', (req, res) => {
             };
             return res.status(404).json(response);
         }
-        const tradeCost = kWh * utils_1.KWH_TO_ZMW_RATE;
+        const tradeCost = kWh * common_1.KWH_TO_ZMW_RATE;
         // Check balances
         if (buyer.balanceZMW < tradeCost) {
             const response = {
@@ -50,10 +50,10 @@ router.post('/', (req, res) => {
             return res.status(400).json(response);
         }
         // Execute trade
-        (0, utils_1.updateUserBalance)(users, buyerId, -tradeCost, kWh);
-        (0, utils_1.updateUserBalance)(users, sellerId, tradeCost, -kWh);
+        (0, common_1.updateUserBalance)(users, buyerId, -tradeCost, kWh);
+        (0, common_1.updateUserBalance)(users, sellerId, tradeCost, -kWh);
         // Create transaction record
-        const transaction = (0, utils_1.createTransaction)('trade', {
+        const transaction = (0, common_1.createTransaction)('trade', {
             buyerId,
             sellerId,
             kWh,
@@ -61,8 +61,8 @@ router.post('/', (req, res) => {
         });
         transactions.push(transaction);
         // Save changes
-        (0, utils_1.writeJsonFile)('users.json', users);
-        (0, utils_1.writeJsonFile)('transactions.json', transactions);
+        (0, common_1.writeJsonFile)('users.json', users);
+        (0, common_1.writeJsonFile)('transactions.json', transactions);
         const response = {
             success: true,
             data: {

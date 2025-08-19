@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // POST /schedule/trade - Schedule a future energy trade
 router.post('/trade', (req, res) => {
@@ -29,7 +29,7 @@ router.post('/trade', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const buyer = users.find(u => u.id === buyerId);
         const seller = users.find(u => u.id === sellerId);
         if (!buyer || !seller) {
@@ -47,9 +47,9 @@ router.post('/trade', (req, res) => {
             return res.status(400).json(response);
         }
         const estimatedCost = kWh * (maxPrice || 1.2);
-        const scheduledTransactions = (0, utils_1.readJsonFile)('scheduled_transactions.json');
+        const scheduledTransactions = (0, common_1.readJsonFile)('scheduled_transactions.json');
         const scheduledTrade = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             type: 'trade',
             scheduledTime,
             status: 'pending',
@@ -60,7 +60,7 @@ router.post('/trade', (req, res) => {
             createdAt: new Date().toISOString()
         };
         scheduledTransactions.push(scheduledTrade);
-        (0, utils_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
+        (0, common_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
         const response = {
             success: true,
             data: {
@@ -105,8 +105,8 @@ router.post('/purchase', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
         const user = users.find(u => u.id === userId);
         const cluster = clusters.find(c => c.id === clusterId);
         if (!user) {
@@ -124,9 +124,9 @@ router.post('/purchase', (req, res) => {
             return res.status(404).json(response);
         }
         const estimatedCost = kWh * (maxPrice || cluster.pricePerKWh);
-        const scheduledTransactions = (0, utils_1.readJsonFile)('scheduled_transactions.json');
+        const scheduledTransactions = (0, common_1.readJsonFile)('scheduled_transactions.json');
         const scheduledPurchase = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             type: 'purchase',
             scheduledTime,
             status: 'pending',
@@ -137,7 +137,7 @@ router.post('/purchase', (req, res) => {
             createdAt: new Date().toISOString()
         };
         scheduledTransactions.push(scheduledPurchase);
-        (0, utils_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
+        (0, common_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
         const response = {
             success: true,
             data: {
@@ -169,7 +169,7 @@ router.get('/:userId', (req, res) => {
     try {
         const { userId } = req.params;
         const { status, limit, offset } = req.query;
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {
@@ -178,7 +178,7 @@ router.get('/:userId', (req, res) => {
             };
             return res.status(404).json(response);
         }
-        let scheduledTransactions = (0, utils_1.readJsonFile)('scheduled_transactions.json');
+        let scheduledTransactions = (0, common_1.readJsonFile)('scheduled_transactions.json');
         // Filter by user
         scheduledTransactions = scheduledTransactions.filter(st => st.buyerId === userId || st.sellerId === userId || st.userId === userId);
         // Filter by status if provided
@@ -233,7 +233,7 @@ router.delete('/:scheduleId', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const scheduledTransactions = (0, utils_1.readJsonFile)('scheduled_transactions.json');
+        const scheduledTransactions = (0, common_1.readJsonFile)('scheduled_transactions.json');
         const transactionIndex = scheduledTransactions.findIndex(st => st.id === scheduleId);
         if (transactionIndex === -1) {
             const response = {
@@ -264,7 +264,7 @@ router.delete('/:scheduleId', (req, res) => {
         // Cancel the transaction
         scheduledTransactions[transactionIndex].status = 'cancelled';
         scheduledTransactions[transactionIndex].reason = 'Cancelled by user';
-        (0, utils_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
+        (0, common_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
         const response = {
             success: true,
             data: {
@@ -290,10 +290,10 @@ router.delete('/:scheduleId', (req, res) => {
 // POST /schedule/execute - Execute pending scheduled transactions (internal/cron endpoint)
 router.post('/execute', (req, res) => {
     try {
-        const scheduledTransactions = (0, utils_1.readJsonFile)('scheduled_transactions.json');
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const scheduledTransactions = (0, common_1.readJsonFile)('scheduled_transactions.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         const now = new Date();
         const executionResults = [];
         const pendingTransactions = scheduledTransactions.filter(st => st.status === 'pending' && new Date(st.scheduledTime) <= now);
@@ -314,9 +314,9 @@ router.post('/execute', (req, res) => {
                         scheduledTransactions[txIndex].reason = 'Insufficient balance';
                         continue;
                     }
-                    (0, utils_1.updateUserBalance)(users, scheduledTx.buyerId, -scheduledTx.amountZMW, scheduledTx.kWh);
-                    (0, utils_1.updateUserBalance)(users, scheduledTx.sellerId, scheduledTx.amountZMW, -scheduledTx.kWh);
-                    const newTransaction = (0, utils_1.createTransaction)('trade', {
+                    (0, common_1.updateUserBalance)(users, scheduledTx.buyerId, -scheduledTx.amountZMW, scheduledTx.kWh);
+                    (0, common_1.updateUserBalance)(users, scheduledTx.sellerId, scheduledTx.amountZMW, -scheduledTx.kWh);
+                    const newTransaction = (0, common_1.createTransaction)('trade', {
                         buyerId: scheduledTx.buyerId,
                         sellerId: scheduledTx.sellerId,
                         kWh: scheduledTx.kWh,
@@ -340,10 +340,10 @@ router.post('/execute', (req, res) => {
                         scheduledTransactions[txIndex].reason = 'Insufficient balance or availability';
                         continue;
                     }
-                    (0, utils_1.updateUserBalance)(users, scheduledTx.userId, -scheduledTx.amountZMW, scheduledTx.kWh);
+                    (0, common_1.updateUserBalance)(users, scheduledTx.userId, -scheduledTx.amountZMW, scheduledTx.kWh);
                     const clusterIndex = clusters.findIndex(c => c.id === scheduledTx.clusterId);
                     clusters[clusterIndex].availableKWh -= scheduledTx.kWh;
-                    const newTransaction = (0, utils_1.createTransaction)('lease', {
+                    const newTransaction = (0, common_1.createTransaction)('lease', {
                         userId: scheduledTx.userId,
                         clusterId: scheduledTx.clusterId,
                         kWh: scheduledTx.kWh,
@@ -370,10 +370,10 @@ router.post('/execute', (req, res) => {
             }
         }
         // Save all changes
-        (0, utils_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
-        (0, utils_1.writeJsonFile)('users.json', users);
-        (0, utils_1.writeJsonFile)('clusters.json', clusters);
-        (0, utils_1.writeJsonFile)('transactions.json', transactions);
+        (0, common_1.writeJsonFile)('scheduled_transactions.json', scheduledTransactions);
+        (0, common_1.writeJsonFile)('users.json', users);
+        (0, common_1.writeJsonFile)('clusters.json', clusters);
+        (0, common_1.writeJsonFile)('transactions.json', transactions);
         const response = {
             success: true,
             data: {

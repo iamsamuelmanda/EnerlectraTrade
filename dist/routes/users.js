@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // POST /users/register - Register new user
 router.post('/register', (req, res) => {
@@ -24,7 +24,7 @@ router.post('/register', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         // Check if user already exists
         const existingUser = users.find(u => u.phoneNumber === phoneNumber);
         if (existingUser) {
@@ -36,14 +36,14 @@ router.post('/register', (req, res) => {
         }
         // Create new user
         const newUser = {
-            id: (0, utils_1.generateId)(),
+            id: (0, common_1.generateId)(),
             name: name.trim(),
             phoneNumber,
             balanceZMW: Math.max(0, initialBalanceZMW),
             balanceKWh: 0
         };
         users.push(newUser);
-        (0, utils_1.writeJsonFile)('users.json', users);
+        (0, common_1.writeJsonFile)('users.json', users);
         const response = {
             success: true,
             data: {
@@ -71,7 +71,7 @@ router.post('/register', (req, res) => {
 router.get('/:userId', (req, res) => {
     try {
         const { userId } = req.params;
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         const user = users.find(u => u.id === userId);
         if (!user) {
             const response = {
@@ -106,7 +106,7 @@ router.get('/:userId', (req, res) => {
 router.get('/', (req, res) => {
     try {
         const { limit, offset } = req.query;
-        const users = (0, utils_1.readJsonFile)('users.json');
+        const users = (0, common_1.readJsonFile)('users.json');
         // Apply pagination
         const limitNum = limit ? parseInt(limit) : 50;
         const offsetNum = offset ? parseInt(offset) : 0;

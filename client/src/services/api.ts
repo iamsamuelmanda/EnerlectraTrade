@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -8,21 +8,16 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Enable cookies for JWT auth
 })
 
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Add auth token if available
-    const user = localStorage.getItem('innerlectra-user')
-    if (user) {
-      try {
-        const userData = JSON.parse(user)
-        config.headers['X-User-ID'] = userData.id
-        config.headers['X-User-Phone'] = userData.phone
-      } catch (error) {
-        console.error('Error parsing user data:', error)
-      }
+    // Add auth token if available (fallback for non-cookie scenarios)
+    const jwtToken = localStorage.getItem('innerlectra-jwt')
+    if (jwtToken) {
+      config.headers['Authorization'] = `Bearer ${jwtToken}`
     }
     return config
   },
@@ -36,11 +31,18 @@ api.interceptors.response.use(
   (response) => {
     return response
   },
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Clear user data and redirect to login
-      localStorage.removeItem('innerlectra-user')
-      window.location.href = '/login'
+      // Try to refresh token
+      try {
+        await api.post('/auth/refresh')
+        // Retry original request
+        return api.request(error.config)
+      } catch (refreshError) {
+        // Clear user data and redirect to login
+        localStorage.removeItem('innerlectra-jwt')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
@@ -48,13 +50,43 @@ api.interceptors.response.use(
 
 // API service functions
 export const apiService = {
+  // Authentication
+  async register(userData: { name: string; phoneNumber: string; initialBalanceZMW?: number }) {
+    return api.post('/auth/register', userData)
+  },
+
+  async startLogin(phoneNumber: string) {
+    return api.post('/auth/login/start', { phoneNumber })
+  },
+
+  async verifyLogin(phoneNumber: string, code: string, name?: string) {
+    return api.post('/auth/login/verify', { phoneNumber, code, name })
+  },
+
+  async refreshToken() {
+    return api.post('/auth/refresh')
+  },
+
+  async logout() {
+    return api.post('/auth/logout')
+  },
+
+  async getProfile() {
+    return api.get('/auth/me')
+  },
+
+  // QR Authentication
+  async issueQrToken(type: 'signup' | 'payment', metadata?: any) {
+    return api.post('/auth/qr/issue', { type, metadata })
+  },
+
+  async redeemQrToken(qrToken: string, phoneNumber?: string, name?: string) {
+    return api.post('/auth/qr/redeem', { qrToken, phoneNumber, name })
+  },
+
   // User management
   async getUser(userId: string) {
     return api.get(`/users/${userId}`)
-  },
-
-  async registerUser(userData: { phone: string; region: string; name?: string }) {
-    return api.post('/users/register', userData)
   },
 
   async updateUser(userId: string, userData: Partial<any>) {
@@ -112,18 +144,25 @@ export const apiService = {
   },
 
   // Trading operations
-  async createTrade(tradeData: {
-    fromUserId: string
-    toUserId: string
-    energyAmount: number
-    pricePerKwh: number
-    tradeType: 'peer_to_peer' | 'cluster_to_user'
-  }) {
+  async createTrade(tradeData: { buyerId: string; sellerId: string; kWh: number }) {
     return api.post('/trade', tradeData)
   },
 
   async getTradeOffers(userId?: string) {
     return api.get(`/trade/offers${userId ? `?userId=${userId}` : ''}`)
+  },
+
+  async createTradeOffer(offerData: {
+    fromUserId: string
+    energyAmount: number
+    pricePerKwh: number
+    tradeType: 'peer_to_peer' | 'cluster_to_user' | 'user_to_cluster'
+    toUserId?: string
+    fromUserName?: string
+    clusterName?: string
+    region?: string
+  }) {
+    return api.post('/trade/offers', offerData)
   },
 
   async acceptTrade(tradeId: string, userId: string) {
@@ -162,6 +201,10 @@ export const apiService = {
     return api.post('/mobilemoney/withdraw', { userId, amount, provider, phone })
   },
 
+  async getMobileMoneyLedger(userId: string) {
+    return api.get(`/mobilemoney/ledger/${userId}`)
+  },
+
   // Price alerts
   async subscribeToPriceAlert(userId: string, alertData: any) {
     return api.post('/alerts/subscribe', { userId, ...alertData })
@@ -188,6 +231,56 @@ export const apiService = {
   // USSD operations
   async processUssdRequest(sessionId: string, phoneNumber: string, text: string) {
     return api.post('/ussd', { sessionId, phoneNumber, text })
+  },
+
+  // AI operations
+  async analyzeTransaction(transactionId: string) {
+    return api.post('/ai/analyze-transaction', { transactionId })
+  },
+
+  async marketInsights() {
+    return api.post('/ai/market-insights', {})
+  },
+
+  async aiAssist(userId: string, query: string, category?: string) {
+    return api.post('/ai/user-assistance', { userId, query, category })
+  },
+
+  // Hybrid Payment System
+  async executeHybridTrade(data: {
+    offerId: string
+    buyerId: string
+    phoneNumber: string
+    paymentMethod: 'hybrid'
+  }) {
+    return api.post('/blockchain/trade/execute', data)
+  },
+
+  async executeMobileMoneyTrade(data: {
+    offerId: string
+    buyerPhone: string
+    mobileMoneyReference: string
+  }) {
+    return api.post('/blockchain/trade/mobile-money', data)
+  },
+
+  async executeBlockchainTrade(data: {
+    offerId: string
+    buyerAddress: string
+  }) {
+    return api.post('/blockchain/trade/blockchain', data)
+  },
+
+  async getBlockchainStatus() {
+    return api.get('/blockchain/status')
+  },
+
+  async getBlockchainHealth() {
+    return api.get('/blockchain/health')
+  },
+
+  async syncBlockchainData() {
+    return api.post('/blockchain/sync')
   }
 }
 

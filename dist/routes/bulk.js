@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // POST /trade/bulk - Execute multiple energy trades in one transaction
 router.post('/trade', (req, res) => {
@@ -21,8 +21,8 @@ router.post('/trade', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         const results = [];
         const errors = [];
         const successful = [];
@@ -57,7 +57,7 @@ router.post('/trade', (req, res) => {
                 });
                 continue;
             }
-            const tradeCost = kWh * utils_1.KWH_TO_ZMW_RATE;
+            const tradeCost = kWh * common_1.KWH_TO_ZMW_RATE;
             if (buyer.balanceZMW < tradeCost) {
                 errors.push({
                     tradeIndex: i,
@@ -82,12 +82,12 @@ router.post('/trade', (req, res) => {
             // Skip if this trade had errors
             if (errors.some(e => e.tradeIndex === i))
                 continue;
-            const tradeCost = kWh * utils_1.KWH_TO_ZMW_RATE;
+            const tradeCost = kWh * common_1.KWH_TO_ZMW_RATE;
             // Execute trade
-            (0, utils_1.updateUserBalance)(users, buyerId, -tradeCost, kWh);
-            (0, utils_1.updateUserBalance)(users, sellerId, tradeCost, -kWh);
+            (0, common_1.updateUserBalance)(users, buyerId, -tradeCost, kWh);
+            (0, common_1.updateUserBalance)(users, sellerId, tradeCost, -kWh);
             // Create transaction record
-            const transaction = (0, utils_1.createTransaction)('trade', {
+            const transaction = (0, common_1.createTransaction)('trade', {
                 buyerId,
                 sellerId,
                 kWh,
@@ -108,8 +108,8 @@ router.post('/trade', (req, res) => {
         }
         // Save changes if any successful trades
         if (successful.length > 0) {
-            (0, utils_1.writeJsonFile)('users.json', users);
-            (0, utils_1.writeJsonFile)('transactions.json', transactions);
+            (0, common_1.writeJsonFile)('users.json', users);
+            (0, common_1.writeJsonFile)('transactions.json', transactions);
         }
         const response = {
             success: errors.length === 0,
@@ -154,9 +154,9 @@ router.post('/purchase', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
         const results = [];
         const errors = [];
         const successful = [];
@@ -218,12 +218,12 @@ router.post('/purchase', (req, res) => {
             const cluster = clusters.find(c => c.id === clusterId);
             const cost = kWh * cluster.pricePerKWh;
             // Execute purchase
-            (0, utils_1.updateUserBalance)(users, userId, -cost, kWh);
+            (0, common_1.updateUserBalance)(users, userId, -cost, kWh);
             // Update cluster
             const clusterIndex = clusters.findIndex(c => c.id === clusterId);
             clusters[clusterIndex].availableKWh -= kWh;
             // Create transaction record
-            const transaction = (0, utils_1.createTransaction)('lease', {
+            const transaction = (0, common_1.createTransaction)('lease', {
                 userId,
                 clusterId,
                 kWh,
@@ -245,9 +245,9 @@ router.post('/purchase', (req, res) => {
         }
         // Save changes if any successful purchases
         if (successful.length > 0) {
-            (0, utils_1.writeJsonFile)('users.json', users);
-            (0, utils_1.writeJsonFile)('clusters.json', clusters);
-            (0, utils_1.writeJsonFile)('transactions.json', transactions);
+            (0, common_1.writeJsonFile)('users.json', users);
+            (0, common_1.writeJsonFile)('clusters.json', clusters);
+            (0, common_1.writeJsonFile)('transactions.json', transactions);
         }
         const response = {
             success: errors.length === 0,

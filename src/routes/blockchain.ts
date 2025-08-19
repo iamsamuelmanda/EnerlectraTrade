@@ -1,507 +1,574 @@
-import { Router, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import { readJsonFile, writeJsonFile, generateId } from '../utils/common';
-import { User, Transaction, ApiResponse } from '../types';
+import blockchainService from '../services/blockchainService';
+import logger from '../utils/logger';
 
-const router = Router();
+const router = express.Router();
 
-interface BlockchainTransaction {
-  id: string;
-  txHash: string;
-  fromAddress: string;
-  toAddress: string;
-  amountZMW: number;
-  kWh: number;
-  status: 'pending' | 'confirmed' | 'failed';
-  blockNumber?: number;
-  gasUsed?: number;
-  gasPrice?: number;
-  confirmations: number;
-  timestamp: string;
-  createdAt: string;
-}
-
-interface WalletAddress {
-  id: string;
-  userId: string;
-  address: string;
-  privateKey: string; // In production, this would be encrypted
-  type: 'energy_token' | 'payment_token';
-  balance: number;
-  isActive: boolean;
-  createdAt: string;
-}
-
-interface PaymentMethod {
-  id: string;
-  userId: string;
-  type: 'blockchain' | 'mobile_money' | 'hybrid';
-  isDefault: boolean;
-  blockchain?: {
-    address: string;
-    network: 'ethereum' | 'polygon' | 'bsc' | 'energy_chain';
-    tokenAddress?: string;
-  };
-  mobileMoney?: {
-    phoneNumber: string;
-    provider: 'MTN' | 'Airtel' | 'Zamtel';
-    accountName: string;
-  };
-  createdAt: string;
-}
-
-// Mock blockchain network simulation
-class MockBlockchain {
-  private static transactions: BlockchainTransaction[] = [];
-  private static currentBlockNumber = 1000000;
-
-  static async createTransaction(
-    fromAddress: string,
-    toAddress: string,
-    amountZMW: number,
-    kWh: number
-  ): Promise<BlockchainTransaction> {
-    const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-    const transaction: BlockchainTransaction = {
-      id: generateId(),
-      txHash,
-      fromAddress,
-      toAddress,
-      amountZMW,
-      kWh,
-      status: 'pending',
-      confirmations: 0,
-      timestamp: new Date().toISOString(),
-      createdAt: new Date().toISOString()
-    };
-
-    this.transactions.push(transaction);
-
-    // Simulate blockchain confirmation (1-3 seconds)
-    setTimeout(() => {
-      this.confirmTransaction(txHash);
-    }, Math.random() * 2000 + 1000);
-
-    return transaction;
-  }
-
-  static confirmTransaction(txHash: string): void {
-    const tx = this.transactions.find(t => t.txHash === txHash);
-    if (tx) {
-      tx.status = 'confirmed';
-      tx.blockNumber = this.currentBlockNumber++;
-      tx.confirmations = Math.floor(Math.random() * 10) + 1;
-      tx.gasUsed = Math.floor(Math.random() * 50000) + 21000;
-      tx.gasPrice = Math.floor(Math.random() * 20) + 5;
-    }
-  }
-
-  static getTransaction(txHash: string): BlockchainTransaction | undefined {
-    return this.transactions.find(t => t.txHash === txHash);
-  }
-
-  static getTransactionsByAddress(address: string): BlockchainTransaction[] {
-    return this.transactions.filter(t => 
-      t.fromAddress === address || t.toAddress === address
-    );
-  }
-}
-
-// POST /blockchain/wallet/create - Create blockchain wallet for user
-router.post('/wallet/create', (req: Request, res: Response) => {
+// GET /blockchain/status - Get blockchain service status
+router.get('/status', async (req: Request, res: Response) => {
   try {
-    const { userId, type = 'energy_token' } = req.body;
-
-    if (!userId) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'User ID is required'
-      };
-      return res.status(400).json(response);
-    }
-
-    const users = readJsonFile<User>('users.json');
-    const user = users.find(u => u.id === userId);
-
-    if (!user) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'User not found'
-      };
-      return res.status(404).json(response);
-    }
-
-    // Generate mock wallet address
-    const address = `0x${Math.random().toString(16).substr(2, 40)}`;
-    const privateKey = `0x${Math.random().toString(16).substr(2, 64)}`;
-
-    const wallets = readJsonFile<WalletAddress>('blockchain_wallets.json');
+    const status = blockchainService.getStatus();
     
-    // Check if user already has a wallet of this type
-    const existingWallet = wallets.find(w => w.userId === userId && w.type === type);
-    if (existingWallet) {
-      const response: ApiResponse = {
-        success: false,
-        error: `User already has a ${type} wallet`
-      };
-      return res.status(400).json(response);
-    }
-
-    const newWallet: WalletAddress = {
-      id: generateId(),
-      userId,
-      address,
-      privateKey,
-      type,
-      balance: type === 'energy_token' ? user.balanceKWh : user.balanceZMW,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-
-    wallets.push(newWallet);
-    writeJsonFile('blockchain_wallets.json', wallets);
-
-    const response: ApiResponse = {
+    res.json({
       success: true,
       data: {
-        walletId: newWallet.id,
-        address: newWallet.address,
-        type: newWallet.type,
-        balance: newWallet.balance,
-        network: 'energy_chain'
-      },
-      message: 'Blockchain wallet created successfully'
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error('Create wallet error:', error);
-    const response: ApiResponse = {
-      success: false,
-      error: 'Failed to create blockchain wallet'
-    };
-    res.status(500).json(response);
-  }
-});
-
-// POST /blockchain/transfer - Initiate blockchain transfer
-router.post('/transfer', async (req: Request, res: Response) => {
-  try {
-    const { fromUserId, toUserId, amountZMW, kWh, paymentMethod = 'blockchain' } = req.body;
-
-    if (!fromUserId || !toUserId || (!amountZMW && !kWh)) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'fromUserId, toUserId, and either amountZMW or kWh are required'
-      };
-      return res.status(400).json(response);
-    }
-
-    const users = readJsonFile<User>('users.json');
-    const fromUser = users.find(u => u.id === fromUserId);
-    const toUser = users.find(u => u.id === toUserId);
-
-    if (!fromUser || !toUser) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'One or both users not found'
-      };
-      return res.status(404).json(response);
-    }
-
-    const wallets = readJsonFile<WalletAddress>('blockchain_wallets.json');
-    const fromWallet = wallets.find(w => w.userId === fromUserId && w.isActive);
-    const toWallet = wallets.find(w => w.userId === toUserId && w.isActive);
-
-    if (!fromWallet || !toWallet) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Blockchain wallets not found for one or both users'
-      };
-      return res.status(404).json(response);
-    }
-
-    // Validate sufficient balance
-    const transferAmount = amountZMW || 0;
-    const transferEnergy = kWh || 0;
-
-    if (transferAmount > 0 && fromUser.balanceZMW < transferAmount) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Insufficient ZMW balance'
-      };
-      return res.status(400).json(response);
-    }
-
-    if (transferEnergy > 0 && fromUser.balanceKWh < transferEnergy) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Insufficient kWh balance'
-      };
-      return res.status(400).json(response);
-    }
-
-    // Create blockchain transaction
-    const blockchainTx = await MockBlockchain.createTransaction(
-      fromWallet.address,
-      toWallet.address,
-      transferAmount,
-      transferEnergy
-    );
-
-    // Create platform transaction record
-    const transactions = readJsonFile<Transaction>('transactions.json');
-    const newTransaction: Transaction = {
-      id: generateId(),
-      type: 'blockchain_transfer',
-      buyerId: toUserId,
-      sellerId: fromUserId,
-      kWh: transferEnergy,
-      amountZMW: transferAmount,
-      carbonSaved: transferEnergy * 0.8,
-      timestamp: new Date().toISOString(),
-      blockchainTxHash: blockchainTx.txHash,
-      paymentMethod: paymentMethod as 'blockchain' | 'mobile_money' | 'hybrid'
-    };
-
-    transactions.push(newTransaction);
-    writeJsonFile('transactions.json', transactions);
-
-    // Update user balances (will be confirmed when blockchain tx confirms)
-    fromUser.balanceZMW -= transferAmount;
-    fromUser.balanceKWh -= transferEnergy;
-    toUser.balanceZMW += transferAmount;
-    toUser.balanceKWh += transferEnergy;
-
-    writeJsonFile('users.json', users);
-
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        transactionId: newTransaction.id,
-        blockchainTxHash: blockchainTx.txHash,
-        fromAddress: fromWallet.address,
-        toAddress: toWallet.address,
-        amountZMW: transferAmount,
-        kWh: transferEnergy,
-        status: blockchainTx.status,
-        estimatedConfirmationTime: '1-3 minutes',
-        network: 'energy_chain'
-      },
-      message: 'Blockchain transfer initiated successfully'
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error('Blockchain transfer error:', error);
-    const response: ApiResponse = {
-      success: false,
-      error: 'Failed to initiate blockchain transfer'
-    };
-    res.status(500).json(response);
-  }
-});
-
-// GET /blockchain/transaction/:txHash - Get blockchain transaction status
-router.get('/transaction/:txHash', (req: Request, res: Response) => {
-  try {
-    const { txHash } = req.params;
-    
-    const blockchainTx = MockBlockchain.getTransaction(txHash);
-    
-    if (!blockchainTx) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction not found'
-      };
-      return res.status(404).json(response);
-    }
-
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        txHash: blockchainTx.txHash,
-        status: blockchainTx.status,
-        confirmations: blockchainTx.confirmations,
-        blockNumber: blockchainTx.blockNumber,
-        gasUsed: blockchainTx.gasUsed,
-        gasPrice: blockchainTx.gasPrice,
-        amountZMW: blockchainTx.amountZMW,
-        kWh: blockchainTx.kWh,
-        timestamp: blockchainTx.timestamp,
-        fromAddress: blockchainTx.fromAddress,
-        toAddress: blockchainTx.toAddress
+        blockchain: status,
+        features: {
+          hybridPayments: true,
+          mobileMoneyIntegration: true,
+          automaticFallback: true,
+          realTimeSync: true
+        },
+        message: 'Blockchain service status retrieved successfully'
       }
-    };
-
-    res.json(response);
+    });
   } catch (error) {
-    console.error('Get transaction error:', error);
-    const response: ApiResponse = {
+    logger.error('Failed to get blockchain status:', error);
+    res.status(500).json({
       success: false,
-      error: 'Failed to retrieve transaction'
-    };
-    res.status(500).json(response);
+      error: 'Failed to get blockchain status',
+      message: 'Internal server error'
+    });
   }
 });
 
-// POST /blockchain/payment-method - Add hybrid payment method
-router.post('/payment-method', (req: Request, res: Response) => {
+// POST /blockchain/offers - Create energy offer on blockchain
+router.post('/offers', async (req: Request, res: Response) => {
   try {
-    const { userId, type, blockchain, mobileMoney, isDefault = false } = req.body;
+    const { sellerAddress, energyAmount, pricePerKwh, acceptMobileMoney = true } = req.body;
 
-    if (!userId || !type) {
-      const response: ApiResponse = {
+    if (!sellerAddress || !energyAmount || !pricePerKwh) {
+      return res.status(400).json({
         success: false,
-        error: 'User ID and payment method type are required'
-      };
-      return res.status(400).json(response);
-    }
-
-    const validTypes = ['blockchain', 'mobile_money', 'hybrid'];
-    if (!validTypes.includes(type)) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Invalid payment method type'
-      };
-      return res.status(400).json(response);
-    }
-
-    const users = readJsonFile<User>('users.json');
-    const user = users.find(u => u.id === userId);
-
-    if (!user) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'User not found'
-      };
-      return res.status(404).json(response);
-    }
-
-    const paymentMethods = readJsonFile<PaymentMethod>('payment_methods.json');
-
-    // If setting as default, unset other defaults
-    if (isDefault) {
-      paymentMethods.forEach(pm => {
-        if (pm.userId === userId) {
-          pm.isDefault = false;
-        }
+        error: 'Missing required fields',
+        message: 'sellerAddress, energyAmount, and pricePerKwh are required'
       });
     }
 
-    const newPaymentMethod: PaymentMethod = {
-      id: generateId(),
-      userId,
-      type,
-      isDefault,
-      blockchain,
-      mobileMoney,
-      createdAt: new Date().toISOString()
-    };
+    const result = await blockchainService.createEnergyOffer(
+      sellerAddress,
+      energyAmount,
+      pricePerKwh,
+      acceptMobileMoney
+    );
 
-    paymentMethods.push(newPaymentMethod);
-    writeJsonFile('payment_methods.json', paymentMethods);
+    if (result.success) {
+      // Also create local offer record
+      const offers = readJsonFile<any>('trade_offers.json');
+      const newOffer = {
+        id: generateId(),
+        blockchainOfferId: result.offerId,
+        fromUserId: sellerAddress,
+        energyAmount,
+        pricePerKwh,
+        totalPrice: energyAmount * pricePerKwh,
+        tradeType: 'peer_to_peer',
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        isHybrid: acceptMobileMoney,
+        source: 'blockchain'
+      };
+      
+      offers.push(newOffer);
+      writeJsonFile('trade_offers.json', offers);
 
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        paymentMethodId: newPaymentMethod.id,
-        type: newPaymentMethod.type,
-        isDefault: newPaymentMethod.isDefault,
-        blockchain: newPaymentMethod.blockchain,
-        mobileMoney: newPaymentMethod.mobileMoney
-      },
-      message: 'Payment method added successfully'
-    };
-
-    res.json(response);
+      res.status(201).json({
+        success: true,
+        data: {
+          offerId: result.offerId,
+          localOfferId: newOffer.id,
+          message: 'Energy offer created on blockchain successfully'
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to create energy offer on blockchain'
+      });
+    }
   } catch (error) {
-    console.error('Add payment method error:', error);
-    const response: ApiResponse = {
+    logger.error('Failed to create blockchain offer:', error);
+    res.status(500).json({
       success: false,
-      error: 'Failed to add payment method'
-    };
-    res.status(500).json(response);
+      error: 'Failed to create blockchain offer',
+      message: 'Internal server error'
+    });
   }
 });
 
-// GET /blockchain/wallet/:userId - Get user's blockchain wallets
-router.get('/wallet/:userId', (req: Request, res: Response) => {
+// GET /blockchain/offers - Get active offers from blockchain
+router.get('/offers', async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    const offers = await blockchainService.getActiveOffers();
     
-    const wallets = readJsonFile<WalletAddress>('blockchain_wallets.json');
-    const userWallets = wallets.filter(w => w.userId === userId && w.isActive);
+    res.json({
+      success: true,
+      data: {
+        offers,
+        count: offers.length,
+        message: 'Blockchain offers retrieved successfully'
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get blockchain offers:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get blockchain offers',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// POST /blockchain/trade/execute - Execute trade with automatic payment method selection
+router.post('/trade/execute', async (req: Request, res: Response) => {
+  try {
+    const { 
+      offerId, 
+      buyerId, 
+      phoneNumber, 
+      paymentMethod = 'hybrid',
+      mobileMoneyReference 
+    } = req.body;
+
+    if (!offerId || !buyerId || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'offerId, buyerId, and phoneNumber are required'
+      });
+    }
+
+    // Get offer details
+    const offers = readJsonFile<any>('trade_offers.json');
+    const offer = offers.find((o: any) => o.id === offerId || o.blockchainOfferId === offerId.toString());
     
-    const walletsWithTransactions = userWallets.map(wallet => {
-      const transactions = MockBlockchain.getTransactionsByAddress(wallet.address);
-      return {
-        ...wallet,
-        transactionCount: transactions.length,
-        lastTransactionAt: transactions.length > 0 ? 
-          Math.max(...transactions.map(t => new Date(t.timestamp).getTime())) : null
-      };
+    if (!offer) {
+      return res.status(404).json({
+        success: false,
+        error: 'Offer not found',
+        message: 'The specified offer does not exist'
+      });
+    }
+
+    // Process hybrid payment
+    const result = await blockchainService.processHybridPayment({
+      userId: buyerId,
+      phoneNumber,
+      energyAmount: offer.energyAmount,
+      pricePerKwh: offer.pricePerKwh,
+      paymentMethod: paymentMethod as 'mobile_money' | 'blockchain' | 'hybrid',
+      mobileMoneyReference
     });
 
-    const response: ApiResponse = {
-      success: true,
-      data: {
-        wallets: walletsWithTransactions.map(w => ({
-          id: w.id,
-          address: w.address,
-          type: w.type,
-          balance: w.balance,
-          transactionCount: w.transactionCount,
-          lastTransactionAt: w.lastTransactionAt,
-          createdAt: w.createdAt
-        })),
-        summary: {
-          totalWallets: userWallets.length,
-          totalBalance: userWallets.reduce((sum, w) => sum + w.balance, 0)
-        }
+    if (result.success) {
+      // Update offer status
+      const offerIndex = offers.findIndex((o: any) => o.id === offerId || o.blockchainOfferId === offerId.toString());
+      if (offerIndex !== -1) {
+        offers[offerIndex].status = 'completed';
+        offers[offerIndex].buyerId = buyerId;
+        offers[offerIndex].completedAt = new Date().toISOString();
+        offers[offerIndex].paymentMethod = result.paymentMethod;
+        writeJsonFile('trade_offers.json', offers);
       }
-    };
 
-    res.json(response);
+      // Create transaction record
+      const transactions = readJsonFile<any>('transactions.json');
+      const transaction = {
+        id: generateId(),
+        blockchainTradeId: result.tradeId,
+        blockchainOfferId: offerId,
+        buyerId,
+        sellerId: offer.fromUserId,
+        kWh: offer.energyAmount,
+        amountZMW: offer.totalPrice,
+        type: 'trade',
+        status: 'completed',
+        timestamp: new Date().toISOString(),
+        paymentMethod: result.paymentMethod,
+        source: 'blockchain'
+      };
+      
+      transactions.push(transaction);
+      writeJsonFile('transactions.json', transactions);
+
+      // Emit WebSocket event for real-time updates
+      const io = (req as any).app?.locals?.io;
+      if (io) {
+        io.to(`trading-${buyerId}`).emit('trade-completed', {
+          type: 'buy',
+          transactionId: transaction.id,
+          amount: offer.energyAmount,
+          cost: offer.totalPrice,
+          paymentMethod: result.paymentMethod,
+          timestamp: transaction.timestamp
+        });
+
+        io.to(`trading-${offer.fromUserId}`).emit('trade-completed', {
+          type: 'sell',
+          transactionId: transaction.id,
+          amount: offer.energyAmount,
+          cost: offer.totalPrice,
+          paymentMethod: result.paymentMethod,
+          timestamp: transaction.timestamp
+        });
+
+        io.to('trading-public').emit('market-update', {
+          type: 'trade',
+          volume: offer.energyAmount,
+          value: offer.totalPrice,
+          paymentMethod: result.paymentMethod,
+          timestamp: transaction.timestamp
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          tradeId: result.tradeId,
+          transactionId: transaction.id,
+          paymentMethod: result.paymentMethod,
+          message: `Trade executed successfully using ${result.paymentMethod}`
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to execute trade'
+      });
+    }
   } catch (error) {
-    console.error('Get wallets error:', error);
-    const response: ApiResponse = {
+    logger.error('Failed to execute blockchain trade:', error);
+    res.status(500).json({
       success: false,
-      error: 'Failed to retrieve wallets'
-    };
-    res.status(500).json(response);
+      error: 'Failed to execute blockchain trade',
+      message: 'Internal server error'
+    });
   }
 });
 
-// GET /blockchain/payment-methods/:userId - Get user's payment methods
-router.get('/payment-methods/:userId', (req: Request, res: Response) => {
+// POST /blockchain/trade/blockchain - Execute trade using blockchain payment only
+router.post('/trade/blockchain', async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    const { offerId, buyerAddress } = req.body;
+
+    if (!offerId || !buyerAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'offerId and buyerAddress are required'
+      });
+    }
+
+    const result = await blockchainService.executeTradeWithBlockchain(
+      parseInt(offerId),
+      buyerAddress
+    );
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: {
+          tradeId: result.tradeId,
+          message: 'Blockchain trade executed successfully'
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to execute blockchain trade'
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to execute blockchain trade:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to execute blockchain trade',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// POST /blockchain/trade/mobile-money - Execute trade using mobile money only
+router.post('/trade/mobile-money', async (req: Request, res: Response) => {
+  try {
+    const { offerId, buyerPhone, mobileMoneyReference } = req.body;
+
+    if (!offerId || !buyerPhone || !mobileMoneyReference) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'offerId, buyerPhone, and mobileMoneyReference are required'
+      });
+    }
+
+    const result = await blockchainService.executeTradeWithMobileMoney(
+      parseInt(offerId),
+      buyerPhone,
+      mobileMoneyReference
+    );
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: {
+          tradeId: result.tradeId,
+          message: 'Mobile money trade executed successfully'
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to execute mobile money trade'
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to execute mobile money trade:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to execute mobile money trade',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// POST /blockchain/mobile-money/process - Process mobile money payment and credit energy
+router.post('/mobile-money/process', async (req: Request, res: Response) => {
+  try {
+    const { userAddress, mobileMoneyReference, energyAmount } = req.body;
+
+    if (!userAddress || !mobileMoneyReference || !energyAmount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'userAddress, mobileMoneyReference, and energyAmount are required'
+      });
+    }
+
+    const result = await blockchainService.processMobileMoneyPayment(
+      userAddress,
+      mobileMoneyReference,
+      energyAmount
+    );
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: {
+          message: 'Mobile money payment processed successfully',
+          energyCredits: energyAmount
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to process mobile money payment'
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to process mobile money payment:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process mobile money payment',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// GET /blockchain/trades/:userAddress - Get user's trade history from blockchain
+router.get('/trades/:userAddress', async (req: Request, res: Response) => {
+  try {
+    const { userAddress } = req.params;
     
-    const paymentMethods = readJsonFile<PaymentMethod>('payment_methods.json');
-    const userPaymentMethods = paymentMethods.filter(pm => pm.userId === userId);
+    if (!userAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing user address',
+        message: 'User address is required'
+      });
+    }
+
+    const trades = await blockchainService.getUserTrades(userAddress);
     
-    const response: ApiResponse = {
+    res.json({
       success: true,
       data: {
-        paymentMethods: userPaymentMethods,
-        summary: {
-          total: userPaymentMethods.length,
-          blockchain: userPaymentMethods.filter(pm => pm.type === 'blockchain').length,
-          mobileMoney: userPaymentMethods.filter(pm => pm.type === 'mobile_money').length,
-          hybrid: userPaymentMethods.filter(pm => pm.type === 'hybrid').length,
-          defaultMethod: userPaymentMethods.find(pm => pm.isDefault)?.type || null
-        }
+        trades,
+        count: trades.length,
+        message: 'User trades retrieved successfully'
       }
-    };
-
-    res.json(response);
+    });
   } catch (error) {
-    console.error('Get payment methods error:', error);
-    const response: ApiResponse = {
+    logger.error('Failed to get user trades:', error);
+    res.status(500).json({
       success: false,
-      error: 'Failed to retrieve payment methods'
-    };
-    res.status(500).json(response);
+      error: 'Failed to get user trades',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// GET /blockchain/balance/:userAddress - Get user's energy balance from blockchain
+router.get('/balance/:userAddress', async (req: Request, res: Response) => {
+  try {
+    const { userAddress } = req.params;
+    
+    if (!userAddress) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing user address',
+        message: 'User address is required'
+      });
+    }
+
+    const balance = await blockchainService.getEnergyBalance(userAddress);
+    
+    res.json({
+      success: true,
+      data: {
+        userAddress,
+        balance,
+        unit: 'kWh',
+        message: 'Energy balance retrieved successfully'
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get energy balance:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get energy balance',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// PUT /blockchain/profile/:userAddress - Update user profile on blockchain
+router.put('/profile/:userAddress', async (req: Request, res: Response) => {
+  try {
+    const { userAddress } = req.params;
+    const { phoneNumber, isVerified } = req.body;
+    
+    if (!userAddress || !phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields',
+        message: 'userAddress and phoneNumber are required'
+      });
+    }
+
+    const result = await blockchainService.updateUserProfile(
+      userAddress,
+      phoneNumber,
+      isVerified || false
+    );
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: {
+          message: 'User profile updated on blockchain successfully'
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error,
+        message: 'Failed to update user profile on blockchain'
+      });
+    }
+  } catch (error) {
+    logger.error('Failed to update user profile on blockchain:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update user profile on blockchain',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// POST /blockchain/sync - Sync blockchain data with local database
+router.post('/sync', async (req: Request, res: Response) => {
+  try {
+    // Get active offers from blockchain
+    const blockchainOffers = await blockchainService.getActiveOffers();
+    
+    // Sync with local database
+    const localOffers = readJsonFile<any>('trade_offers.json');
+    let syncedCount = 0;
+
+    for (const blockchainOffer of blockchainOffers) {
+      const existingIndex = localOffers.findIndex(
+        (o: any) => o.blockchainOfferId === blockchainOffer.offerId.toString()
+      );
+
+      if (existingIndex === -1) {
+        // Add new offer
+        localOffers.push({
+          id: generateId(),
+          blockchainOfferId: blockchainOffer.offerId.toString(),
+          fromUserId: blockchainOffer.seller,
+          energyAmount: blockchainOffer.energyAmount,
+          pricePerKwh: blockchainOffer.pricePerKwh,
+          totalPrice: blockchainOffer.totalPrice,
+          tradeType: 'peer_to_peer',
+          status: blockchainOffer.isActive ? 'pending' : 'expired',
+          createdAt: new Date(blockchainOffer.timestamp * 1000).toISOString(),
+          expiresAt: new Date(blockchainOffer.expiresAt * 1000).toISOString(),
+          isHybrid: blockchainOffer.isHybrid,
+          source: 'blockchain'
+        });
+        syncedCount++;
+      }
+    }
+
+    writeJsonFile('trade_offers.json', localOffers);
+
+    res.json({
+      success: true,
+      data: {
+        syncedOffers: syncedCount,
+        totalBlockchainOffers: blockchainOffers.length,
+        message: 'Blockchain data synced successfully'
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to sync blockchain data:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync blockchain data',
+      message: 'Internal server error'
+    });
+  }
+});
+
+// GET /blockchain/health - Health check for blockchain service
+router.get('/health', async (req: Request, res: Response) => {
+  try {
+    const status = blockchainService.getStatus();
+    
+    res.json({
+      success: true,
+      data: {
+        service: 'blockchain',
+        status: status.isInitialized ? 'healthy' : 'unavailable',
+        blockchain: status,
+        timestamp: new Date().toISOString(),
+        message: status.isInitialized ? 'Blockchain service is operational' : 'Blockchain service is not configured'
+      }
+    });
+  } catch (error) {
+    logger.error('Blockchain health check failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Blockchain health check failed',
+      message: 'Internal server error'
+    });
   }
 });
 

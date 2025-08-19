@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
+const momoService_1 = require("../services/momoService");
 const router = (0, express_1.Router)();
 // POST /mobilemoney/ussd - Enhanced USSD with mobile money integration
-router.post('/ussd', (req, res) => {
+router.post('/ussd', async (req, res) => {
     try {
         const { text, phoneNumber } = req.body;
         if (!phoneNumber) {
@@ -14,8 +15,8 @@ router.post('/ussd', (req, res) => {
             };
             return res.status(400).json(response);
         }
-        const users = (0, utils_1.readJsonFile)('users.json');
-        let user = (0, utils_1.findUserByPhone)(users, phoneNumber);
+        const users = (0, common_1.readJsonFile)('users.json');
+        let user = (0, common_1.findUserByPhone)(users, phoneNumber);
         // Create user if doesn't exist
         if (!user) {
             user = {
@@ -26,7 +27,7 @@ router.post('/ussd', (req, res) => {
                 phoneNumber
             };
             users.push(user);
-            (0, utils_1.writeJsonFile)('users.json', users);
+            (0, common_1.writeJsonFile)('users.json', users);
         }
         let ussdResponse;
         const menuPath = text || '';
@@ -58,15 +59,16 @@ router.post('/ussd', (req, res) => {
                     case '3':
                         // Account info
                         ussdResponse = {
-                            text: `END Account Information:\n\nName: ${user.name}\nPhone: ${user.phoneNumber}\nZMW Balance: ${user.balanceZMW.toFixed(2)}\nEnergy Balance: ${user.balanceKWh.toFixed(2)} kWh\n\nTotal Value: ${(user.balanceZMW + user.balanceKWh * 1.2).toFixed(2)} ZMW`,
+                            text: `END Account Information:\n\nName: ${user.name}\nPhone: ${user.phoneNumber}\nZMW Balance: ${user.balanceZMW.toFixed(2)}\nEnergy Balance: ${user.balanceKWh.toFixed(2)} kWh\n\nTotal Value: ${(user.balanceZMW + user.balanceKWh * parseFloat(process.env.KWH_TO_ZMW_RATE || '1.2')).toFixed(2)} ZMW`,
                             continueSession: false
                         };
                         break;
                     case '4':
                         // Carbon impact
-                        const transactions = (0, utils_1.readJsonFile)('transactions.json');
+                        const transactions = (0, common_1.readJsonFile)('transactions.json');
                         const userTransactions = transactions.filter(t => t.buyerId === user.id || t.userId === user.id);
-                        const totalCarbonSaved = userTransactions.reduce((total, t) => total + t.carbonSaved, 0);
+                        const carbonPerKWh = parseFloat(process.env.CARBON_SAVINGS_PER_KWH || '0.8');
+                        const totalCarbonSaved = userTransactions.reduce((total, t) => total + (t.kWh * carbonPerKWh), 0);
                         ussdResponse = {
                             text: `END Your Environmental Impact:\n\nCarbon Saved: ${totalCarbonSaved.toFixed(1)} kg CO2\nEnergy Traded: ${userTransactions.reduce((total, t) => total + t.kWh, 0).toFixed(1)} kWh\n\nYou're helping save Africa! 🌍`,
                             continueSession: false
@@ -105,7 +107,7 @@ router.post('/ussd', (req, res) => {
                             break;
                         case '3':
                             // Transaction history
-                            const mmTransactions = (0, utils_1.readJsonFile)('mobile_money_transactions.json');
+                            const mmTransactions = (0, common_1.readJsonFile)('mobile_money_transactions.json');
                             const userMmTx = mmTransactions.filter(t => t.phoneNumber === phoneNumber).slice(-5);
                             let historyText = 'END Recent Mobile Money:\n\n';
                             if (userMmTx.length === 0) {
@@ -162,28 +164,39 @@ router.post('/ussd', (req, res) => {
                             };
                         }
                         else {
-                            // Simulate mobile money deposit
-                            (0, utils_1.updateUserBalance)(users, user.id, depositAmount, 0);
-                            // Record mobile money transaction
-                            const mmTransactions = (0, utils_1.readJsonFile)('mobile_money_transactions.json');
-                            const mmTransaction = {
-                                id: (0, utils_1.generateId)(),
-                                phoneNumber,
-                                type: 'deposit',
-                                amount: depositAmount,
-                                currency: 'ZMW',
-                                status: 'completed',
-                                timestamp: new Date().toISOString(),
-                                reference: `DEP${Date.now()}`,
-                                description: 'Mobile money deposit to Enerlectra wallet'
-                            };
-                            mmTransactions.push(mmTransaction);
-                            (0, utils_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
-                            (0, utils_1.writeJsonFile)('users.json', users);
-                            ussdResponse = {
-                                text: `END Deposit Successful! ✅\n\nAmount: ${depositAmount} ZMW\nReference: ${mmTransaction.reference}\nNew Balance: ${user.balanceZMW.toFixed(2)} ZMW\n\nThank you for using Enerlectra!`,
-                                continueSession: false
-                            };
+                            try {
+                                const reference = `DEP${Date.now()}`;
+                                // Initiate real MTN deposit
+                                await (0, momoService_1.initiateDeposit)(phoneNumber, depositAmount, reference);
+                                // Update user balance immediately (will be confirmed via callback)
+                                (0, common_1.updateUserBalance)(users, user.id, depositAmount, 0);
+                                // Record mobile money transaction
+                                const mmTransactions = (0, common_1.readJsonFile)('mobile_money_transactions.json');
+                                const mmTransaction = {
+                                    id: (0, common_1.generateId)(),
+                                    phoneNumber,
+                                    type: 'deposit',
+                                    amount: depositAmount,
+                                    currency: 'ZMW',
+                                    status: 'pending',
+                                    timestamp: new Date().toISOString(),
+                                    reference: reference,
+                                    description: 'Mobile money deposit to Enerlectra wallet'
+                                };
+                                mmTransactions.push(mmTransaction);
+                                (0, common_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
+                                (0, common_1.writeJsonFile)('users.json', users);
+                                ussdResponse = {
+                                    text: `END Deposit Initiated! ⏳\n\nAmount: ${depositAmount} ZMW\nReference: ${mmTransaction.reference}\n\nDial *151# to confirm payment. Balance will update after confirmation.`,
+                                    continueSession: false
+                                };
+                            }
+                            catch (error) {
+                                ussdResponse = {
+                                    text: `END Deposit Failed: ${error.message}`,
+                                    continueSession: false
+                                };
+                            }
                         }
                     }
                     else if (menuLevels[1] === '2') {
@@ -196,28 +209,39 @@ router.post('/ussd', (req, res) => {
                             };
                         }
                         else {
-                            // Process withdrawal
-                            (0, utils_1.updateUserBalance)(users, user.id, -withdrawAmount, 0);
-                            // Record mobile money transaction
-                            const mmTransactions = (0, utils_1.readJsonFile)('mobile_money_transactions.json');
-                            const mmTransaction = {
-                                id: (0, utils_1.generateId)(),
-                                phoneNumber,
-                                type: 'withdrawal',
-                                amount: withdrawAmount,
-                                currency: 'ZMW',
-                                status: 'completed',
-                                timestamp: new Date().toISOString(),
-                                reference: `WTH${Date.now()}`,
-                                description: 'Withdrawal from Enerlectra wallet'
-                            };
-                            mmTransactions.push(mmTransaction);
-                            (0, utils_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
-                            (0, utils_1.writeJsonFile)('users.json', users);
-                            ussdResponse = {
-                                text: `END Withdrawal Successful! ✅\n\nAmount: ${withdrawAmount} ZMW\nReference: ${mmTransaction.reference}\nNew Balance: ${user.balanceZMW.toFixed(2)} ZMW\n\nCash collection SMS sent.`,
-                                continueSession: false
-                            };
+                            try {
+                                const reference = `WTH${Date.now()}`;
+                                // Initiate real MTN withdrawal
+                                await (0, momoService_1.initiateWithdrawal)(phoneNumber, withdrawAmount, reference);
+                                // Update user balance immediately
+                                (0, common_1.updateUserBalance)(users, user.id, -withdrawAmount, 0);
+                                // Record mobile money transaction
+                                const mmTransactions = (0, common_1.readJsonFile)('mobile_money_transactions.json');
+                                const mmTransaction = {
+                                    id: (0, common_1.generateId)(),
+                                    phoneNumber,
+                                    type: 'withdrawal',
+                                    amount: withdrawAmount,
+                                    currency: 'ZMW',
+                                    status: 'pending',
+                                    timestamp: new Date().toISOString(),
+                                    reference: reference,
+                                    description: 'Withdrawal from Enerlectra wallet'
+                                };
+                                mmTransactions.push(mmTransaction);
+                                (0, common_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
+                                (0, common_1.writeJsonFile)('users.json', users);
+                                ussdResponse = {
+                                    text: `END Withdrawal Initiated! ⏳\n\nAmount: ${withdrawAmount} ZMW\nReference: ${mmTransaction.reference}\n\nYou will receive funds shortly.`,
+                                    continueSession: false
+                                };
+                            }
+                            catch (error) {
+                                ussdResponse = {
+                                    text: `END Withdrawal Failed: ${error.message}`,
+                                    continueSession: false
+                                };
+                            }
                         }
                     }
                     else if (menuLevels[1] === '4') {
@@ -264,7 +288,7 @@ router.post('/ussd', (req, res) => {
                     }
                     else {
                         // Find or create recipient
-                        let recipient = (0, utils_1.findUserByPhone)(users, recipientPhone);
+                        let recipient = (0, common_1.findUserByPhone)(users, recipientPhone);
                         if (!recipient) {
                             recipient = {
                                 id: `user_${Date.now()}`,
@@ -276,13 +300,13 @@ router.post('/ussd', (req, res) => {
                             users.push(recipient);
                         }
                         // Execute transfer
-                        (0, utils_1.updateUserBalance)(users, user.id, -sendAmount, 0);
-                        (0, utils_1.updateUserBalance)(users, recipient.id, sendAmount, 0);
+                        (0, common_1.updateUserBalance)(users, user.id, -sendAmount, 0);
+                        (0, common_1.updateUserBalance)(users, recipient.id, sendAmount, 0);
                         // Record transactions for both users
-                        const mmTransactions = (0, utils_1.readJsonFile)('mobile_money_transactions.json');
+                        const mmTransactions = (0, common_1.readJsonFile)('mobile_money_transactions.json');
                         const transferRef = `TXF${Date.now()}`;
                         mmTransactions.push({
-                            id: (0, utils_1.generateId)(),
+                            id: (0, common_1.generateId)(),
                             phoneNumber,
                             type: 'payment',
                             amount: -sendAmount,
@@ -293,7 +317,7 @@ router.post('/ussd', (req, res) => {
                             description: `Transfer to ${recipientPhone}`
                         });
                         mmTransactions.push({
-                            id: (0, utils_1.generateId)(),
+                            id: (0, common_1.generateId)(),
                             phoneNumber: recipientPhone,
                             type: 'deposit',
                             amount: sendAmount,
@@ -303,8 +327,8 @@ router.post('/ussd', (req, res) => {
                             reference: transferRef,
                             description: `Transfer from ${phoneNumber}`
                         });
-                        (0, utils_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
-                        (0, utils_1.writeJsonFile)('users.json', users);
+                        (0, common_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
+                        (0, common_1.writeJsonFile)('users.json', users);
                         ussdResponse = {
                             text: `END Transfer Successful! ✅\n\nSent: ${sendAmount} ZMW\nTo: ${recipientPhone}\nReference: ${transferRef}\nNew Balance: ${user.balanceZMW.toFixed(2)} ZMW`,
                             continueSession: false
@@ -343,51 +367,36 @@ router.post('/ussd', (req, res) => {
         res.status(500).json(response);
     }
 });
-// GET /mobilemoney/transactions/:phoneNumber - Get mobile money transaction history
-router.get('/transactions/:phoneNumber', (req, res) => {
+// MTN Callback Handler
+router.post('/callback', (req, res) => {
     try {
-        const { phoneNumber } = req.params;
-        const { limit, offset, type } = req.query;
-        const mmTransactions = (0, utils_1.readJsonFile)('mobile_money_transactions.json');
-        let userTransactions = mmTransactions.filter(t => t.phoneNumber === phoneNumber);
-        // Filter by type if specified
-        if (type && typeof type === 'string') {
-            userTransactions = userTransactions.filter(t => t.type === type);
+        const signature = req.headers['x-momo-signature'];
+        const body = JSON.stringify(req.body);
+        if (!(0, momoService_1.verifyWebhookSignature)(body, signature)) {
+            return res.status(401).send('Unauthorized');
         }
-        // Sort by timestamp (newest first)
-        userTransactions.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        // Apply pagination
-        const limitNum = limit ? parseInt(limit) : 20;
-        const offsetNum = offset ? parseInt(offset) : 0;
-        const paginatedTransactions = userTransactions.slice(offsetNum, offsetNum + limitNum);
-        const response = {
-            success: true,
-            data: {
-                phoneNumber,
-                transactions: paginatedTransactions,
-                pagination: {
-                    total: userTransactions.length,
-                    limit: limitNum,
-                    offset: offsetNum,
-                    hasMore: offsetNum + limitNum < userTransactions.length
-                },
-                summary: {
-                    totalTransactions: userTransactions.length,
-                    totalDeposits: userTransactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0),
-                    totalWithdrawals: userTransactions.filter(t => t.type === 'withdrawal').reduce((sum, t) => sum + Math.abs(t.amount), 0),
-                    totalPayments: userTransactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + Math.abs(t.amount), 0)
+        const { reference, status, amount } = req.body;
+        // Update transaction status
+        const mmTransactions = (0, common_1.readJsonFile)('mobile_money_transactions.json');
+        const transaction = mmTransactions.find(t => t.reference === reference);
+        if (transaction) {
+            transaction.status = status === 'SUCCESSFUL' ? 'completed' : 'failed';
+            (0, common_1.writeJsonFile)('mobile_money_transactions.json', mmTransactions);
+            // Update user balance if deposit completed
+            if (transaction.type === 'deposit' && status === 'SUCCESSFUL') {
+                const users = (0, common_1.readJsonFile)('users.json');
+                const user = (0, common_1.findUserByPhone)(users, transaction.phoneNumber);
+                if (user) {
+                    (0, common_1.updateUserBalance)(users, user.id, amount, 0);
+                    (0, common_1.writeJsonFile)('users.json', users);
                 }
             }
-        };
-        res.json(response);
+        }
+        res.status(200).send('OK');
     }
     catch (error) {
-        console.error('Mobile money transactions error:', error);
-        const response = {
-            success: false,
-            error: 'Internal server error'
-        };
-        res.status(500).json(response);
+        console.error('Callback error:', error);
+        res.status(500).send('Internal Server Error');
     }
 });
 exports.default = router;

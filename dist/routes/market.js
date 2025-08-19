@@ -1,14 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const utils_1 = require("../utils");
+const common_1 = require("../utils/common");
 const router = (0, express_1.Router)();
 // GET /market/stats - Platform-wide market statistics
 router.get('/stats', (req, res) => {
     try {
-        const users = (0, utils_1.readJsonFile)('users.json');
-        const transactions = (0, utils_1.readJsonFile)('transactions.json');
-        const clusters = (0, utils_1.readJsonFile)('clusters.json');
+        const users = (0, common_1.readJsonFile)('users.json');
+        const transactions = (0, common_1.readJsonFile)('transactions.json');
+        const clusters = (0, common_1.readJsonFile)('clusters.json');
         // Calculate platform statistics
         const totalUsers = users.length;
         const totalTransactions = transactions.length;
