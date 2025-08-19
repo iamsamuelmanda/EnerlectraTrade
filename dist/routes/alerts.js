@@ -509,3 +509,4 @@ router.post('/ussd', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=alerts.js.map

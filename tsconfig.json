@@ -8,30 +8,25 @@
     "strict": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": false,
+    "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false,
-    "removeComments": false,
+    "declaration": true,
+    "sourceMap": true,
     "noImplicitAny": false,
     "noImplicitReturns": false,
-    "noImplicitThis": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": false,
-    "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "types": ["node", "express"]
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
-    "src/**/*"
+    "src/clean-index.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "client"
+    "test",
+    "src/middleware",
+    "src/routes",
+    "src/security",
+    "src/services",
+    "src/utils"
   ]
 }

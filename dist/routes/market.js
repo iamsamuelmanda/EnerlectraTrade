@@ -80,3 +80,4 @@ router.get('/stats', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=market.js.map

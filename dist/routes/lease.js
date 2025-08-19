@@ -102,3 +102,4 @@ router.post('/', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=lease.js.map

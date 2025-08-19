@@ -275,3 +275,4 @@ router.post('/purchase', (req, res) => {
     }
 });
 exports.default = router;
+//# sourceMappingURL=bulk.js.map

@@ -19,9 +19,6 @@ const io = new Server(server, {
   }
 });
 
-// Make io instance available to routes
-app.set('io', io);
-
 // ========================================
 // BASIC SECURITY MIDDLEWARE
 // ========================================
@@ -276,4 +273,4 @@ process.on('SIGINT', () => {
 startServer().catch((error) => {
   console.error('❌ Failed to start server:', error);
   process.exit(1);
-});
+}); 
