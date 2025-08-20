@@ -4,20 +4,42 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { config } from 'dotenv';
+import crypto from 'crypto';
 
 // Load environment variables
 config();
+
+// Type definitions
+interface AuthenticatedRequest extends express.Request {
+  user?: {
+    id: string;
+    identifier: string;
+    verified: boolean;
+  };
+}
+
+interface AuthenticatedSocket extends Socket {
+  user?: {
+    id: string;
+    identifier: string;
+    verified: boolean;
+  };
+}
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://enerlectra.vercel.app'],
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://enerlectra-frontend-c406365od-samuel-mandas-projects.vercel.app'],
     credentials: true
   }
 });
+
+// In-memory storage for demo purposes (replace with database in production)
+const users = new Map();
+const sessions = new Map();
 
 // ========================================
 // BASIC SECURITY MIDDLEWARE
@@ -63,7 +85,7 @@ function configureSecurityMiddleware() {
 
   // CORS configuration
   app.use(cors({
-    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://enerlectra.vercel.app'],
+    origin: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000', 'https://enerlectra-frontend-c406365od-samuel-mandas-projects.vercel.app'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -80,6 +102,35 @@ function configureSecurityMiddleware() {
 }
 
 // ========================================
+// AUTHENTICATION MIDDLEWARE
+// ========================================
+function authenticateToken(req: AuthenticatedRequest, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Access Token Required',
+      message: 'Please provide a valid authentication token'
+    });
+  }
+
+  // Simple token validation (replace with JWT in production)
+  const session = sessions.get(token);
+  if (!session) {
+    return res.status(403).json({ 
+      success: false, 
+      error: 'Invalid Token',
+      message: 'Token is invalid or expired'
+    });
+  }
+
+  req.user = session.user;
+  next();
+}
+
+// ========================================
 // ROUTES
 // ========================================
 function configureRoutes() {
@@ -92,15 +143,15 @@ function configureRoutes() {
       timestamp: new Date().toISOString(),
       security: {
         status: 'active',
-        features: ['rate-limiting', 'helmet', 'cors', 'cookies']
+        features: ['rate-limiting', 'helmet', 'cors', 'cookies', 'authentication']
       },
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       features: {
-        authentication: 'Basic authentication system',
+        authentication: 'Enhanced authentication system with sessions',
         trading: 'Energy trading platform',
         websocket: 'Real-time WebSocket connections',
-        api: 'RESTful API endpoints'
+        api: 'RESTful API endpoints with security'
       },
       branding: {
         name: 'Enerlectra',
@@ -118,8 +169,161 @@ function configureRoutes() {
       version: '1.0.0',
       endpoints: {
         health: '/health',
-        api: '/api'
+        api: '/api',
+        auth: {
+          login: 'POST /auth/login',
+          register: 'POST /auth/register',
+          verify: 'POST /auth/verify',
+          logout: 'POST /auth/logout'
+        },
+        trading: {
+          offers: 'GET /api/trading/offers',
+          create: 'POST /api/trading/offers'
+        }
       }
+    });
+  });
+
+  // Authentication routes
+  app.post('/auth/login', (req, res) => {
+    const { phone, email } = req.body;
+    
+    if (!phone && !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing Credentials',
+        message: 'Please provide phone number or email'
+      });
+    }
+
+    const identifier = phone || email;
+    const user = users.get(identifier) || { id: crypto.randomUUID(), identifier, verified: false };
+    
+    if (!users.has(identifier)) {
+      users.set(identifier, user);
+    }
+
+    // Generate OTP (in production, send via SMS/email)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    console.log(`OTP for ${identifier}: ${otp}`); // Remove in production
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully',
+      userId: user.id,
+      expiresIn: '10 minutes'
+    });
+  });
+
+  app.post('/auth/verify', (req, res) => {
+    const { identifier, otp } = req.body;
+    
+    if (!identifier || !otp) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing Parameters',
+        message: 'Please provide identifier and OTP'
+      });
+    }
+
+    const user = users.get(identifier);
+    if (!user || user.otp !== otp || Date.now() > user.otpExpiry) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid OTP',
+        message: 'OTP is invalid or expired'
+      });
+    }
+
+    // Clear OTP
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+    user.verified = true;
+
+    // Generate session token
+    const token = crypto.randomBytes(32).toString('hex');
+    const session = { user: { id: user.id, identifier, verified: user.verified }, createdAt: Date.now() };
+    sessions.set(token, session);
+
+    res.json({
+      success: true,
+      message: 'Authentication successful',
+      token,
+      user: { id: user.id, identifier, verified: user.verified }
+    });
+  });
+
+  app.post('/auth/logout', authenticateToken, (req, res) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (token) {
+      sessions.delete(token);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  });
+
+  // Protected trading routes
+  app.get('/api/trading/offers', authenticateToken, (req: AuthenticatedRequest, res) => {
+    res.json({
+      success: true,
+      offers: [
+        {
+          id: '1',
+          type: 'solar',
+          amount: '100kW',
+          price: 0.15,
+          location: 'Nairobi, Kenya',
+          seller: 'SolarFarm Ltd',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: '2',
+          type: 'wind',
+          amount: '50kW',
+          price: 0.12,
+          location: 'Cape Town, South Africa',
+          seller: 'WindPower Co',
+          expiresAt: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+        }
+      ]
+    });
+  });
+
+  app.post('/api/trading/offers', authenticateToken, (req: AuthenticatedRequest, res) => {
+    const { type, amount, price, location } = req.body;
+    
+    if (!type || !amount || !price || !location) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing Fields',
+        message: 'Please provide type, amount, price, and location'
+      });
+    }
+
+    const offer = {
+      id: crypto.randomUUID(),
+      type,
+      amount,
+      price: parseFloat(price),
+      location,
+      seller: req.user?.identifier || 'Unknown',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    };
+
+    // In production, save to database
+    console.log('New offer created:', offer);
+
+    res.json({
+      success: true,
+      message: 'Offer created successfully',
+      offer
     });
   });
 
@@ -139,18 +343,25 @@ function configureRoutes() {
 // WEBSOCKET CONFIGURATION
 // ========================================
 function configureWebSocket() {
-  io.use((socket, next) => {
+  io.use((socket: AuthenticatedSocket, next) => {
     // Basic socket authentication (can be enhanced later)
     const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
     
     if (!token) {
       console.log('Socket connection without token (guest mode)');
+    } else {
+      // Validate token
+      const session = sessions.get(token);
+      if (session) {
+        socket.user = session.user;
+        console.log(`Authenticated socket connection: ${socket.user.identifier}`);
+      }
     }
     
     next();
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', (socket: AuthenticatedSocket) => {
     console.log(`🔌 WebSocket connection: ${socket.id}`);
     
     socket.on('disconnect', () => {
@@ -167,6 +378,12 @@ function configureWebSocket() {
       console.log('Offer created:', data);
       socket.broadcast.emit('offer-update', data);
     });
+
+    // Join user to their trading room
+    if (socket.user) {
+      socket.join(`user-${socket.user.id}`);
+      socket.emit('authenticated', { user: socket.user });
+    }
   });
 
   console.log('✅ WebSocket configured successfully');
@@ -224,11 +441,14 @@ async function initializeApplication() {
     console.log('   • Security headers with Helmet');
     console.log('   • CORS configuration');
     console.log('   • Cookie security');
+    console.log('   • Authentication middleware');
     console.log('⚡ Energy Trading Features:');
     console.log('   • Real-time WebSocket connections');
     console.log('   • RESTful API endpoints');
     console.log('   • Health monitoring');
     console.log('   • Error handling');
+    console.log('   • User authentication system');
+    console.log('   • Trading offers management');
     
   } catch (error) {
     console.error('❌ Application initialization failed:', error);
@@ -248,6 +468,8 @@ async function startServer() {
     console.log(`🚀 Enerlectra - The Energy Internet server running on port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔐 Auth endpoints: http://localhost:${PORT}/auth/*`);
+    console.log(`📈 Trading API: http://localhost:${PORT}/api/trading/*`);
     console.log(`⚡ Welcome to The Energy Internet!`);
   });
 }
