@@ -13,7 +13,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://enerlectra.vercel.app,http://localhost:3000
+        value: https://enerlectra-frontend-c406365od-samuel-mandas-projects.vercel.app,http://localhost:3000
     healthCheckPath: /health
     autoDeploy: true
     branch: main 
