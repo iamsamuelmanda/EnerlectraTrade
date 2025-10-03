@@ -1,13 +1,17 @@
 // === src/App.jsx ===
 import { useState, useEffect } from 'react';
-import { Activity, Zap, TrendingUp, Users, DollarSign, BarChart3, LogIn, User, Brain } from 'lucide-react';
+import { Activity, Zap, TrendingUp, Users, DollarSign, BarChart3, LogIn, User, Brain, Settings } from 'lucide-react';
 import { apiService } from './services/api';
 import { useAuth } from './contexts/AuthContext';
 import { useSocket } from './contexts/SocketContext';
+import { useOffline } from './hooks/useOffline';
 import EnhancedLoginModal from './components/EnhancedLoginModal';
 import AIInsightsPanel from './components/AIInsightsPanel';
+import EnhancedFeaturesPanel from './components/EnhancedFeaturesPanel';
 import EnerlectraLogo from './components/EnerlectraLogo';
 import LoadingScreen from './components/LoadingScreen';
+import OfflineIndicator from './components/OfflineIndicator';
+import AutoUpdateIndicator from './components/AutoUpdateIndicator';
 import toast from 'react-hot-toast';
 
 type ConnectionStatus = 'checking' | 'connected' | 'offline' | 'error';
@@ -52,11 +56,13 @@ const EnerlectraDashboard = () => {
   const [listings, setListings] = useState<EnergyListing[]>([]);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showAIInsights, setShowAIInsights] = useState(false);
+  const [showEnhancedFeatures, setShowEnhancedFeatures] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
   const { user, isAuthenticated, logout } = useAuth();
   const { isConnected: wsConnected } = useSocket();
+  const { isOnline, syncStatus } = useOffline();
 
   // Simulate loading progress
   useEffect(() => {
@@ -233,6 +239,10 @@ const EnerlectraDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Offline and Update Indicators */}
+      <OfflineIndicator />
+      <AutoUpdateIndicator />
+      
       {/* Header */}
       <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -251,8 +261,20 @@ const EnerlectraDashboard = () => {
             <div className="flex items-center space-x-3">
               <ConnectionBadge />
               <WebSocketBadge />
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                isOnline ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+              }`}>
+                {isOnline ? '🌐 Online' : '📱 Offline'}
+              </span>
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => setShowEnhancedFeatures(!showEnhancedFeatures)}
+                    className="px-3 py-1 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>Enhanced Features</span>
+                  </button>
                   <button
                     onClick={() => setShowAIInsights(!showAIInsights)}
                     className="px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium rounded-lg transition-all duration-200 flex items-center space-x-2"
@@ -310,6 +332,12 @@ const EnerlectraDashboard = () => {
             <div className="flex items-center justify-center space-x-4">
               <span className="text-green-400 text-lg">✅ Welcome back, {user?.name}!</span>
               <button
+                onClick={() => setShowEnhancedFeatures(!showEnhancedFeatures)}
+                className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200"
+              >
+                Test Enhanced Features
+              </button>
+              <button
                 onClick={() => setShowAIInsights(!showAIInsights)}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200"
               >
@@ -318,6 +346,13 @@ const EnerlectraDashboard = () => {
             </div>
           )}
         </div>
+
+        {/* Enhanced Features Panel */}
+        {showEnhancedFeatures && (
+          <div className="mb-8">
+            <EnhancedFeaturesPanel />
+          </div>
+        )}
 
         {/* AI Insights Panel */}
         {showAIInsights && (
@@ -434,6 +469,8 @@ const EnerlectraDashboard = () => {
               <p><strong>Energy API:</strong> /api/pricing ✅</p>
               <p><strong>Connection:</strong> <span className={connectionStatus === 'connected' ? 'text-green-400' : 'text-red-400'}>{connectionStatus}</span></p>
               <p><strong>WebSocket:</strong> <span className={wsConnected ? 'text-green-400' : 'text-red-400'}>{wsConnected ? 'Connected' : 'Disconnected'}</span></p>
+              <p><strong>Offline Mode:</strong> <span className={isOnline ? 'text-green-400' : 'text-orange-400'}>{isOnline ? 'Online' : 'Offline'}</span></p>
+              <p><strong>Sync Status:</strong> <span className={syncStatus.syncInProgress ? 'text-yellow-400' : 'text-green-400'}>{syncStatus.syncInProgress ? 'Syncing' : 'Synced'}</span></p>
             </div>
             <div className="space-y-2 text-slate-300">
               <p><strong>Data Mode:</strong> {connectionStatus === 'connected' ? 'Live Data' : 'Demo Data'}</p>
@@ -441,6 +478,7 @@ const EnerlectraDashboard = () => {
               <p><strong>Last Updated:</strong> {new Date().toLocaleTimeString()}</p>
               <p><strong>Authentication:</strong> {isAuthenticated ? '🟢 Logged In' : '🔴 Guest'}</p>
               <p><strong>Status:</strong> {connectionStatus === 'connected' ? '🟢 Online' : '🔴 Offline'}</p>
+              <p><strong>Pending Actions:</strong> {syncStatus.pendingActions}</p>
             </div>
           </div>
         </div>
