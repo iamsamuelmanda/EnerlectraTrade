@@ -26,6 +26,12 @@ interface AuthenticatedSocket extends Socket {
     identifier: string;
     verified: boolean;
   };
+  handshake: any;
+  id: string;
+  on: any;
+  broadcast: any;
+  join: any;
+  emit: any;
 }
 
 const app = express();
