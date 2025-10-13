@@ -22,6 +22,10 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test"
+    "test",
+    "src/components",
+    "src/contexts",
+    "src/hooks",
+    "src/pages"
   ]
 }
