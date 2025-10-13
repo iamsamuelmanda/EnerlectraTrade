@@ -1,0 +1,426 @@
+/* Base classes for anime.js animations */
+.animate-on-mount {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.balance-indicator {
+  position: fixed;
+  font-size: 1.5rem;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 9999;
+  color: #10b981;
+}
+
+.confetti {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  background: #3b82f6;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.qr-scanner-frame {
+  border: 2px solid #3b82f6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Dashboard cards */
+.dashboard-card {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+/* Animation utility classes */
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.fade-out {
+  animation: fadeOut 0.3s ease-in forwards;
+}
+
+.slide-in-left {
+  animation: slideInLeft 0.4s ease-out forwards;
+}
+
+.slide-in-right {
+  animation: slideInRight 0.4s ease-out forwards;
+}
+
+.slide-in-up {
+  animation: slideInUp 0.4s ease-out forwards;
+}
+
+.pulse {
+  animation: pulse 0.6s ease-in-out;
+}
+
+.shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+.bounce {
+  animation: bounce 0.6s ease-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.4s ease-out forwards;
+}
+
+/* Keyframe animations (fallback for non-anime.js contexts) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-10px);
+  }
+  40%, 80% {
+    transform: translateX(10px);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Loading spinner animation */
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Progress bar animations */
+.progress-bar {
+  transition: width 0.3s ease;
+}
+
+.progress-bar-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Toast notification animations */
+.toast-enter {
+  animation: toastSlideIn 0.4s ease-out forwards;
+}
+
+.toast-exit {
+  animation: toastSlideOut 0.3s ease-in forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    transform: translateX(300px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(300px);
+    opacity: 0;
+  }
+}
+
+/* Modal animations */
+.modal-enter {
+  animation: modalFadeIn 0.3s ease-out forwards;
+}
+
+.modal-exit {
+  animation: modalFadeOut 0.2s ease-in forwards;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+/* Update badge pulse */
+.update-badge-pulse {
+  animation: badgePulse 1s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    background-color: #ef4444;
+  }
+  50% {
+    transform: scale(1.3);
+    background-color: #fca5a5;
+  }
+}
+
+/* Chart animations */
+.chart-bar {
+  animation: barGrow 1s ease-out forwards;
+  transform-origin: bottom;
+}
+
+@keyframes barGrow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.chart-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: drawLine 1.5s ease-in-out forwards;
+}
+
+@keyframes drawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.chart-point {
+  animation: pointAppear 0.4s ease-out forwards;
+  transform-origin: center;
+}
+
+@keyframes pointAppear {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Typing indicator */
+.typing-dot {
+  animation: typingBounce 0.6s ease-in-out infinite alternate;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typingBounce {
+  from {
+    transform: translateY(-5px);
+  }
+  to {
+    transform: translateY(5px);
+  }
+}
+
+/* Energy flow line animation */
+.energy-flow-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: flowLine 1.5s ease-in-out infinite;
+}
+
+@keyframes flowLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Success checkmark animation */
+.success-checkmark {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: drawCheckmark 0.8s ease-in-out forwards;
+}
+
+@keyframes drawCheckmark {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Hover effects */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Button press feedback */
+.button-press {
+  transition: transform 0.1s ease;
+}
+
+.button-press:active {
+  transform: scale(0.95);
+}
+
+/* Reduced motion override */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-on-mount,
+  .dashboard-card {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Focus visible styles for accessibility */
+.focus-visible:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .balance-indicator {
+    color: #34d399;
+  }
+
+  .confetti {
+    background: #60a5fa;
+  }
+
+  .qr-scanner-frame {
+    border-color: #60a5fa;
+  }
+}
