@@ -110,28 +110,28 @@ function configureSecurityMiddleware() {
 // ========================================
 function configureRoutes() {
   // Import all 23 route files
-  const authRoutes = require('./routes/auth');
-  const userRoutes = require('./routes/users');
-  const tradeRoutes = require('./routes/trade');
-  const walletRoutes = require('./routes/wallet');
-  const clustersRoutes = require('./routes/clusters');  // plural, not cluster
-  const transactionRoutes = require('./routes/transactions');
-  const carbonRoutes = require('./routes/carbon');
-  const ussdRoutes = require('./routes/ussd');
-  const mobileMoneyRoutes = require('./routes/mobilemoney');
-  const blockchainRoutes = require('./routes/blockchain');
-  const aiRoutes = require('./routes/ai');
-  const alertsRoutes = require('./routes/alerts');
-  const marketRoutes = require('./routes/market');
-  const pricingRoutes = require('./routes/pricing');
-  const scheduleRoutes = require('./routes/schedule');
-  const monitoringRoutes = require('./routes/monitoring');
-  const leaseRoutes = require('./routes/lease');
-  const bulkRoutes = require('./routes/bulk');
-  const enhancedMobileMoneyRoutes = require('./routes/enhancedMobileMoney');
-  const analyticsRoutes = require('./routes/analytics');
-  const enhancedAIRoutes = require('./routes/enhancedAI');
-  const autoUpdateRoutes = require('./routes/autoUpdate');
+  const authRoutes = require('./routes/auth').default || require('./routes/auth');
+  const userRoutes = require('./routes/users').default || require('./routes/users');
+  const tradeRoutes = require('./routes/trade').default || require('./routes/trade');
+  const walletRoutes = require('./routes/wallet').default || require('./routes/wallet');
+  const clustersRoutes = require('./routes/clusters').default || require('./routes/clusters');  // plural, not cluster
+  const transactionRoutes = require('./routes/transactions').default || require('./routes/transactions');
+  const carbonRoutes = require('./routes/carbon').default || require('./routes/carbon');
+  const ussdRoutes = require('./routes/ussd').default || require('./routes/ussd');
+  const mobileMoneyRoutes = require('./routes/mobilemoney').default || require('./routes/mobilemoney');
+  const blockchainRoutes = require('./routes/blockchain').default || require('./routes/blockchain');
+  const aiRoutes = require('./routes/ai').default || require('./routes/ai');
+  const alertsRoutes = require('./routes/alerts').default || require('./routes/alerts');
+  const marketRoutes = require('./routes/market').default || require('./routes/market');
+  const pricingRoutes = require('./routes/pricing').default || require('./routes/pricing');
+  const scheduleRoutes = require('./routes/schedule').default || require('./routes/schedule');
+  const monitoringRoutes = require('./routes/monitoring').default || require('./routes/monitoring');
+  const leaseRoutes = require('./routes/lease').default || require('./routes/lease');
+  const bulkRoutes = require('./routes/bulk').default || require('./routes/bulk');
+  const enhancedMobileMoneyRoutes = require('./routes/enhancedMobileMoney').default || require('./routes/enhancedMobileMoney');
+  const analyticsRoutes = require('./routes/analytics').default || require('./routes/analytics');
+  const enhancedAIRoutes = require('./routes/enhancedAI').default || require('./routes/enhancedAI');
+  const autoUpdateRoutes = require('./routes/autoUpdate').default || require('./routes/autoUpdate');
 
   // Health check with branding
   app.get('/health', (req, res) => {
