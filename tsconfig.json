@@ -17,16 +17,15 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": [
-    "src/clean-index.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "test",
-    "src/middleware",
-    "src/routes",
-    "src/security",
-    "src/services",
-    "src/utils"
+    "src/components",
+    "src/contexts",
+    "src/hooks",
+    "src/pages"
   ]
 }
