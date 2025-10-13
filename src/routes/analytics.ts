@@ -134,9 +134,9 @@ router.post('/track/trading-behavior', async (req: Request, res: Response) => {
 // POST /analytics/track/ai-interaction - Track AI interaction
 router.post('/track/ai-interaction', async (req: Request, res: Response) => {
   try {
-    const { userId, query, category, response, satisfaction, followUpActions, context, model, tokensUsed, responseTime } = req.body;
+    const { userId, query, category, response: aiResponse, satisfaction, followUpActions, context, model, tokensUsed, responseTime } = req.body;
 
-    if (!userId || !query || !category || !response) {
+    if (!userId || !query || !category || !aiResponse) {
       const response: ApiResponse<string> = {
         success: false,
         error: 'Missing required fields'
@@ -148,7 +148,7 @@ router.post('/track/ai-interaction', async (req: Request, res: Response) => {
       userId,
       query,
       category,
-      response,
+      response: aiResponse,
       satisfaction,
       followUpActions,
       context,
