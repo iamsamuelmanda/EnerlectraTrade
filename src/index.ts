@@ -197,36 +197,129 @@ function configureRoutes() {
 // ========================================
 function configureWebSocket() {
   io.use((socket, next) => {
-    // Basic socket authentication (can be enhanced later)
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+    // Socket authentication - extract token from handshake
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
     
-    if (!token) {
-      console.log('Socket connection without token (guest mode)');
+    if (token) {
+      try {
+        // Verify JWT token and extract user info
+        const jwt = require('jsonwebtoken');
+        const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-change-me');
+        socket.data.userId = payload.sub || payload.userId;
+        socket.data.isAdmin = payload.role === 'admin';
+        socket.data.username = payload.name || payload.username;
+        console.log(`✅ Socket authenticated: User ${socket.data.userId}`);
+      } catch (error) {
+        console.log('⚠️  Socket authentication failed, allowing guest connection');
+      }
+    } else {
+      console.log('🔓 Socket connection without token (guest mode)');
     }
     
     next();
   });
 
   io.on('connection', (socket) => {
-    console.log(`🔌 WebSocket connection: ${socket.id}`);
+    console.log(`🔌 WebSocket connected: ${socket.id} (User: ${socket.data.userId || 'Guest'})`);
     
-    socket.on('disconnect', () => {
-      console.log(`🔌 WebSocket disconnected: ${socket.id}`);
+    // Join user-specific room if authenticated
+    if (socket.data.userId) {
+      const userRoom = `user-${socket.data.userId}`;
+      socket.join(userRoom);
+      console.log(`👤 User ${socket.data.userId} joined room: ${userRoom}`);
+      
+      // Join admin room if admin
+      if (socket.data.isAdmin) {
+        socket.join('admin-room');
+        console.log(`👑 Admin ${socket.data.userId} joined admin-room`);
+      }
+      
+      // Emit user-connected event to all clients
+      io.emit('user-connected', {
+        userId: socket.data.userId,
+        username: socket.data.username,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Handle user joining cluster rooms
+    socket.on('join-cluster-room', (clusterId: string) => {
+      if (!clusterId) return;
+      
+      const clusterRoom = `cluster-${clusterId}`;
+      socket.join(clusterRoom);
+      console.log(`🏢 User ${socket.data.userId || socket.id} joined cluster: ${clusterRoom}`);
+      
+      // Notify cluster members
+      socket.to(clusterRoom).emit('cluster-member-joined', {
+        clusterId,
+        userId: socket.data.userId,
+        username: socket.data.username,
+        timestamp: new Date().toISOString()
+      });
+    });
+    
+    // Handle user leaving cluster rooms
+    socket.on('leave-cluster-room', (clusterId: string) => {
+      if (!clusterId) return;
+      
+      const clusterRoom = `cluster-${clusterId}`;
+      socket.leave(clusterRoom);
+      console.log(`🏢 User ${socket.data.userId || socket.id} left cluster: ${clusterRoom}`);
+    });
+    
+    // Handle user rejoining rooms after reconnection
+    socket.on('rejoin-rooms', (data: { userId?: string; clusterIds?: string[] }) => {
+      if (data.userId) {
+        socket.join(`user-${data.userId}`);
+        console.log(`🔄 User ${data.userId} rejoined personal room`);
+      }
+      
+      if (data.clusterIds && Array.isArray(data.clusterIds)) {
+        data.clusterIds.forEach(clusterId => {
+          socket.join(`cluster-${clusterId}`);
+          console.log(`🔄 User rejoined cluster: cluster-${clusterId}`);
+        });
+      }
+    });
+    
+    // Handle disconnect
+    socket.on('disconnect', (reason) => {
+      console.log(`🔌 WebSocket disconnected: ${socket.id} (User: ${socket.data.userId || 'Guest'}) - Reason: ${reason}`);
+      
+      // Emit user-disconnected event
+      if (socket.data.userId) {
+        io.emit('user-disconnected', {
+          userId: socket.data.userId,
+          username: socket.data.username,
+          timestamp: new Date().toISOString()
+        });
+      }
     });
 
-    // Handle energy trading events
+    // Legacy trading events (backward compatibility)
     socket.on('trade-completed', (data) => {
       console.log('Trade completed:', data);
-      socket.broadcast.emit('trade-update', data);
+      io.emit('trade-completed', data);
     });
 
     socket.on('offer-created', (data) => {
       console.log('Offer created:', data);
-      socket.broadcast.emit('offer-update', data);
+      io.emit('offer-created', data);
+    });
+    
+    socket.on('market-update', (data) => {
+      console.log('Market update:', data);
+      io.emit('market-update', data);
     });
   });
 
-  console.log('✅ WebSocket configured successfully');
+  console.log('✅ WebSocket configured successfully with room management');
+  console.log('   • User-specific rooms (user-{userId})');
+  console.log('   • Cluster rooms (cluster-{clusterId})');
+  console.log('   • Admin room (admin-room)');
+  console.log('   • User connection/disconnection events');
+  console.log('   • Real-time event broadcasting');
 }
 
 // ========================================
