@@ -1,0 +1,49 @@
+[
+  {
+    "clusterId": "clu_aih2d4v8",
+    "target_kW": 250,
+    "location": {
+      "district": "NDOLA",
+      "province": "Copperbelt"
+    },
+    "name": "Ndola Cluster B Updated",
+    "status": "active",
+    "createdAt": "2025-12-14T19:07:03.515Z",
+    "updatedAt": "2025-12-14T19:07:03.718Z"
+  },
+  {
+    "clusterId": "clu_nyu3blgk",
+    "target_kW": 250,
+    "location": {
+      "district": "NDOLA",
+      "province": "Copperbelt"
+    },
+    "name": "Ndola Cluster B Updated",
+    "status": "active",
+    "createdAt": "2025-12-14T19:11:50.591Z",
+    "updatedAt": "2025-12-14T19:11:50.618Z"
+  },
+  {
+    "clusterId": "clu_rbiypfps",
+    "target_kW": 100,
+    "location": {
+      "district": "TEST",
+      "province": "Test"
+    },
+    "name": "Test Persistent A",
+    "status": "open",
+    "createdAt": "2025-12-14T19:19:53.193Z"
+  },
+  {
+    "clusterId": "clu_kabwe_demo",
+    "target_kW": 150,
+    "location": {
+      "district": "KABWE CENTRAL",
+      "province": "Central"
+    },
+    "name": "Kabwe Central Solar Cooperative",
+    "status": "active",
+    "createdAt": "2025-12-16T00:00:00.000Z",
+    "demo": true
+  }
+]

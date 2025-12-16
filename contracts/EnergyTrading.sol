@@ -1,31 +1,64 @@
+// contracts/EnergyTrading.sol (UPDATED FOR OPENZEPPELIN V5)
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// Updated imports for OpenZeppelin v5.x (no more Counters!)
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
-contract EnergyTrading is Ownable, ReentrancyGuard, Pausable {
-    using Counters for Counters.Counter;
+// Chainlink Price Feed Interface (included directly to avoid import issues)
+interface AggregatorV3Interface {
+    function decimals() external view returns (uint8);
+    function description() external view returns (string memory);
+    function version() external view returns (uint256);
+    function getRoundData(uint80 _roundId) external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+}
+
+// Interface to interact with EnergyToken custom functions
+interface IEnergyToken is IERC20 {
+    function lockTokens(uint256 amount) external;
+    function unlockTokens(uint256 amount) external;
+}
+
+contract EnergyTrading is AccessControl, ReentrancyGuard, Pausable {
+    
+    // REPLACED: Using uint256 instead of Counters (more gas efficient in v5)
+    uint256 private _offerIdCounter;
+    uint256 private _tradeIdCounter;
+
+    // GOVERNANCE ROLE definition for Multi-Sig control
+    bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
 
     // Token contracts
-    IERC20 public energyToken;
-    IERC20 public paymentToken; // USDC or stablecoin
-    AggregatorV3Interface public priceFeed; // Chainlink price feed for energy pricing
+    IEnergyToken public energyToken;
+    IERC20 public paymentToken;
+    AggregatorV3Interface public priceFeed;
 
     // Trading structures
     struct EnergyOffer {
         uint256 offerId;
         address seller;
-        uint256 energyAmount; // in kWh (18 decimals)
-        uint256 pricePerKwh; // in wei (dynamic via oracle)
+        uint256 energyAmount;
+        uint256 pricePerKwh;
         uint256 totalPrice;
         uint256 expiresAt;
         bool isActive;
-        bool isHybrid; // true if mobile money payment accepted
+        bool isHybrid;
         string mobileMoneyReference;
     }
 
@@ -37,144 +70,214 @@ contract EnergyTrading is Ownable, ReentrancyGuard, Pausable {
         uint256 energyAmount;
         uint256 totalPrice;
         uint256 timestamp;
-        PaymentMethod paymentMethod;
-        string mobileMoneyReference;
         TradeStatus status;
+        string mobileMoneyReference;
     }
 
     struct UserProfile {
-        address userAddress;
-        string phoneNumber;
-        uint256 energyBalance;
-        uint256 paymentBalance;
-        bool isVerified;
-        uint256 reputation;
-        uint256 totalTrades;
-        uint256 createdAt;
+        uint256 totalEnergyTraded;
+        uint256 totalSpent;
+        uint256 totalEarned;
+        uint256 successfulTrades;
+        uint256 reputationScore;
     }
 
-    enum PaymentMethod { BLOCKCHAIN, MOBILE_MONEY, HYBRID }
-    enum TradeStatus { PENDING, COMPLETED, CANCELLED, DISPUTED, RESOLVED }
+    enum TradeStatus { Pending, Completed, Cancelled, Disputed }
 
     // State variables
-    Counters.Counter private _offerIds;
-    Counters.Counter private _tradeIds;
     mapping(uint256 => EnergyOffer) public offers;
     mapping(uint256 => Trade) public trades;
     mapping(address => UserProfile) public userProfiles;
-    mapping(address => uint256) public userEnergyBalances;
-    mapping(address => uint256) public userPaymentBalances;
-    mapping(string => bool) public mobileMoneyReferences;
-    mapping(address => string[]) public userMobileMoneyHistory;
+    mapping(address => uint256[]) public userOffers;
+    mapping(address => uint256[]) public userTrades;
 
-    // Fees and limits
-    uint256 public tradingFee = 25; // 0.25% (basis points)
-    uint256 public minEnergyAmount = 1 * 10**18; // 1 kWh
-    uint256 public maxEnergyAmount = 10000 * 10**18; // 10,000 kWh
-    uint256 public timelockPeriod = 24 hours; // Timelock for critical updates
-    uint256 public lastFeeUpdate;
+    // Fee structure
+    uint256 public platformFeePercent = 2; // 2% platform fee
+    uint256 public constant FEE_DENOMINATOR = 100;
+    address public feeCollector;
 
     // Events
-    event EnergyOfferCreated(uint256 indexed offerId, address indexed seller, uint256 energyAmount, uint256 pricePerKwh, bool isHybrid);
-    event EnergyOfferUpdated(uint256 indexed offerId, uint256 newPrice, uint256 newAmount);
-    event EnergyOfferCancelled(uint256 indexed offerId);
-    event TradeExecuted(uint256 indexed tradeId, uint256 indexed offerId, address indexed buyer, address seller, uint256 energyAmount, uint256 totalPrice, PaymentMethod paymentMethod);
-    event MobileMoneyPaymentReceived(address indexed user, string reference, uint256 amount, uint256 energyCredits);
-    event UserProfileUpdated(address indexed user, string phoneNumber, bool isVerified);
-    event DisputeRaised(uint256 indexed tradeId, address indexed by, string reason);
-    event DisputeResolved(uint256 indexed tradeId, address resolver, bool inFavorOfBuyer);
+    event OfferCreated(uint256 indexed offerId, address indexed seller, uint256 energyAmount, uint256 pricePerKwh);
+    event OfferCancelled(uint256 indexed offerId, address indexed seller);
+    event TradeExecuted(uint256 indexed tradeId, uint256 indexed offerId, address indexed buyer, address seller, uint256 energyAmount, uint256 totalPrice);
+    event TradeCompleted(uint256 indexed tradeId);
+    event TradeCancelled(uint256 indexed tradeId);
+    event FeeUpdated(uint256 newFeePercent);
 
     constructor(
         address _energyToken,
         address _paymentToken,
-        address _priceFeed
-    ) Ownable(msg.sender) {
-        energyToken = IERC20(_energyToken);
+        address _priceFeed,
+        address _feeCollector,
+        address _governanceAddress
+    ) {
+        require(_energyToken != address(0), "Invalid energy token");
+        require(_paymentToken != address(0), "Invalid payment token");
+        require(_priceFeed != address(0), "Invalid price feed");
+        require(_feeCollector != address(0), "Invalid fee collector");
+        require(_governanceAddress != address(0), "Invalid governance address");
+
+        energyToken = IEnergyToken(_energyToken);
         paymentToken = IERC20(_paymentToken);
-        priceFeed = AggregatorV3Interface(_priceFeed); // e.g., ETH/USD feed, adapt for energy
+        priceFeed = AggregatorV3Interface(_priceFeed);
+        feeCollector = _feeCollector;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, _governanceAddress);
+        _grantRole(GOVERNANCE_ROLE, _governanceAddress);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function createEnergyOffer(
-        uint256 energyAmount,
-        uint256 pricePerKwh,
-        uint256 expiresAt,
-        bool acceptMobileMoney
-    ) external whenNotPaused nonReentrant returns (uint256) {
-        require(energyAmount >= minEnergyAmount, "Amount too low");
-        require(energyAmount <= maxEnergyAmount, "Amount too high");
-        require(pricePerKwh > 0, "Invalid price");
-        require(expiresAt > block.timestamp, "Invalid expiration");
-        require(energyToken.balanceOf(msg.sender) >= energyAmount, "Insufficient energy balance");
+    // --- GOVERNANCE FUNCTIONS ---
+    function pause() external onlyRole(GOVERNANCE_ROLE) {
+        _pause();
+    }
 
-        uint256 offerId = _offerIds.current();
-        _offerIds.increment();
+    function unpause() external onlyRole(GOVERNANCE_ROLE) {
+        _unpause();
+    }
+
+    function updateFee(uint256 _newFeePercent) external onlyRole(GOVERNANCE_ROLE) {
+        require(_newFeePercent <= 10, "Fee too high"); // Max 10%
+        platformFeePercent = _newFeePercent;
+        emit FeeUpdated(_newFeePercent);
+    }
+
+    // --- CORE TRADING FUNCTIONS ---
+    
+    function createOffer(
+        uint256 _energyAmount,
+        uint256 _pricePerKwh,
+        uint256 _expiresAt,
+        bool _isHybrid,
+        string memory _mobileMoneyReference
+    ) external whenNotPaused nonReentrant returns (uint256) {
+        require(_energyAmount > 0, "Invalid energy amount");
+        require(_pricePerKwh > 0, "Invalid price");
+        require(_expiresAt > block.timestamp, "Invalid expiry");
+
+        // Lock seller's energy tokens
+        energyToken.lockTokens(_energyAmount);
+
+        uint256 offerId = ++_offerIdCounter;
+        uint256 totalPrice = (_energyAmount * _pricePerKwh) / 1e18;
 
         offers[offerId] = EnergyOffer({
             offerId: offerId,
             seller: msg.sender,
-            energyAmount: energyAmount,
-            pricePerKwh: pricePerKwh,
-            totalPrice: energyAmount * pricePerKwh,
-            expiresAt: expiresAt,
+            energyAmount: _energyAmount,
+            pricePerKwh: _pricePerKwh,
+            totalPrice: totalPrice,
+            expiresAt: _expiresAt,
             isActive: true,
-            isHybrid: acceptMobileMoney,
-            mobileMoneyReference: ""
+            isHybrid: _isHybrid,
+            mobileMoneyReference: _mobileMoneyReference
         });
 
-        // Lock seller's energy
-        EnergyToken(address(energyToken)).lockTokens(energyAmount / 10**18); // Convert to kWh
-        energyToken.transferFrom(msg.sender, address(this), energyAmount);
+        userOffers[msg.sender].push(offerId);
 
-        emit EnergyOfferCreated(offerId, msg.sender, energyAmount, pricePerKwh, acceptMobileMoney);
+        emit OfferCreated(offerId, msg.sender, _energyAmount, _pricePerKwh);
         return offerId;
     }
 
-    function executeTradeWithBlockchain(uint256 offerId) external whenNotPaused nonReentrant returns (uint256) {
-        EnergyOffer storage offer = offers[offerId];
+    function cancelOffer(uint256 _offerId) external nonReentrant {
+        EnergyOffer storage offer = offers[_offerId];
+        require(offer.seller == msg.sender, "Not offer owner");
         require(offer.isActive, "Offer not active");
-        require(offer.expiresAt > block.timestamp, "Offer expired");
-        require(msg.sender != offer.seller, "Cannot buy from yourself");
-        require(paymentToken.balanceOf(msg.sender) >= offer.totalPrice, "Insufficient payment balance");
 
-        uint256 tradeId = _tradeIds.current();
-        _tradeIds.increment();
+        offer.isActive = false;
+        
+        // Unlock seller's tokens
+        energyToken.unlockTokens(offer.energyAmount);
 
-        uint256 feeAmount = (offer.totalPrice * tradingFee) / 10000;
-        uint256 sellerAmount = offer.totalPrice - feeAmount;
+        emit OfferCancelled(_offerId, msg.sender);
+    }
 
-        paymentToken.transferFrom(msg.sender, address(this), offer.totalPrice);
-        paymentToken.transfer(offer.seller, sellerAmount);
-        paymentToken.transfer(owner(), feeAmount);
+    function acceptOffer(uint256 _offerId) external whenNotPaused nonReentrant returns (uint256) {
+        EnergyOffer storage offer = offers[_offerId];
+        require(offer.isActive, "Offer not active");
+        require(block.timestamp < offer.expiresAt, "Offer expired");
+        require(msg.sender != offer.seller, "Cannot buy own offer");
 
-        EnergyToken(address(energyToken)).unlockTokens(offer.energyAmount / 10**18);
-        energyToken.transfer(msg.sender, offer.energyAmount);
+        // Calculate fees
+        uint256 platformFee = (offer.totalPrice * platformFeePercent) / FEE_DENOMINATOR;
+        uint256 sellerAmount = offer.totalPrice - platformFee;
 
+        // Transfer payment from buyer to seller and fee collector
+        require(paymentToken.transferFrom(msg.sender, offer.seller, sellerAmount), "Payment failed");
+        require(paymentToken.transferFrom(msg.sender, feeCollector, platformFee), "Fee transfer failed");
+
+        // Transfer energy tokens from seller to buyer
+        energyToken.unlockTokens(offer.energyAmount);
+        require(energyToken.transferFrom(offer.seller, msg.sender, offer.energyAmount), "Energy transfer failed");
+
+        // Create trade record
+        uint256 tradeId = ++_tradeIdCounter;
         trades[tradeId] = Trade({
             tradeId: tradeId,
-            offerId: offerId,
+            offerId: _offerId,
             buyer: msg.sender,
             seller: offer.seller,
             energyAmount: offer.energyAmount,
             totalPrice: offer.totalPrice,
             timestamp: block.timestamp,
-            paymentMethod: PaymentMethod.BLOCKCHAIN,
-            mobileMoneyReference: "",
-            status: TradeStatus.COMPLETED
+            status: TradeStatus.Completed,
+            mobileMoneyReference: offer.mobileMoneyReference
         });
 
-        offer.isActive = false;
-        _updateUserStats(msg.sender, offer.seller, offer.energyAmount, offer.totalPrice);
+        // Update user profiles
+        userProfiles[msg.sender].totalEnergyTraded += offer.energyAmount;
+        userProfiles[msg.sender].totalSpent += offer.totalPrice;
+        userProfiles[msg.sender].successfulTrades++;
 
-        emit TradeExecuted(tradeId, offerId, msg.sender, offer.seller, offer.energyAmount, offer.totalPrice, PaymentMethod.BLOCKCHAIN);
+        userProfiles[offer.seller].totalEnergyTraded += offer.energyAmount;
+        userProfiles[offer.seller].totalEarned += sellerAmount;
+        userProfiles[offer.seller].successfulTrades++;
+
+        userTrades[msg.sender].push(tradeId);
+        userTrades[offer.seller].push(tradeId);
+
+        // Deactivate offer
+        offer.isActive = false;
+
+        emit TradeExecuted(tradeId, _offerId, msg.sender, offer.seller, offer.energyAmount, offer.totalPrice);
+        emit TradeCompleted(tradeId);
+
         return tradeId;
     }
 
-    function executeTradeWithMobileMoney(
-        uint256 offerId,
-        string calldata mobileMoneyRef
-    ) external onlyOwner whenNotPaused nonReentrant returns (uint256) {
-        EnergyOffer storage offer = offers[offerId];
-        require(offer.isActive, "Offer not active");
-        require(offer.expiresAt > block.timestamp, "Offer expired");
-        require(offer.isHybrid, "Offer doesn't accept mobile money");
-        require(!mobileMoneyReferences[mobileMoneyRef
+    // --- VIEW FUNCTIONS ---
+    
+    function getOffer(uint256 _offerId) external view returns (EnergyOffer memory) {
+        return offers[_offerId];
+    }
+
+    function getTrade(uint256 _tradeId) external view returns (Trade memory) {
+        return trades[_tradeId];
+    }
+
+    function getUserProfile(address _user) external view returns (UserProfile memory) {
+        return userProfiles[_user];
+    }
+
+    function getUserOffers(address _user) external view returns (uint256[] memory) {
+        return userOffers[_user];
+    }
+
+    function getUserTrades(address _user) external view returns (uint256[] memory) {
+        return userTrades[_user];
+    }
+
+    function getCurrentOfferId() external view returns (uint256) {
+        return _offerIdCounter;
+    }
+
+    function getCurrentTradeId() external view returns (uint256) {
+        return _tradeIdCounter;
+    }
+
+    // Get latest price from Chainlink
+    function getLatestPrice() public view returns (int) {
+        (, int price, , , ) = priceFeed.latestRoundData();
+        return price;
+    }
+}

@@ -1,287 +1,117 @@
-import axios from 'axios'
+import axios from "axios";
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api'
+const API_BASE_URL =
+  (import.meta as any).env.VITE_API_URL || "http://localhost:3000/api/v1";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Enable cookies for JWT auth
-})
+  timeout: 8000,
+  headers: { "Content-Type": "application/json" },
+});
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    // Add auth token if available (fallback for non-cookie scenarios)
-    const jwtToken = localStorage.getItem('innerlectra-jwt')
-    if (jwtToken) {
-      config.headers['Authorization'] = `Bearer ${jwtToken}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
+// --- Simple stub for unimplemented endpoints ---
+const stub = async (data: any) =>
+  new Promise((resolve) => setTimeout(() => resolve({ data }), 60));
 
-// Response interceptor
-api.interceptors.response.use(
-  (response) => {
-    return response
-  },
-  async (error) => {
-    if (error.response?.status === 401) {
-      // Try to refresh token
-      try {
-        await api.post('/auth/refresh')
-        // Retry original request
-        return api.request(error.config)
-      } catch (refreshError) {
-        // Clear user data and redirect to login
-        localStorage.removeItem('innerlectra-jwt')
-        window.location.href = '/login'
-      }
-    }
-    return Promise.reject(error)
-  }
-)
-
-// API service functions
 export const apiService = {
-  // Authentication
-  async register(userData: { name: string; phoneNumber: string; initialBalanceZMW?: number }) {
-    return api.post('/auth/register', userData)
+  //
+  // 🔥 REAL MVP ENDPOINTS (match server.js)
+  //
+  getClusters() {
+    return api.get("/clusters");
   },
 
-  async startLogin(phoneNumber: string) {
-    return api.post('/auth/login/start', { phoneNumber })
+  getCluster(id: string) {
+    return api.get(`/clusters/${id}`);
   },
 
-  async verifyLogin(phoneNumber: string, code: string, name?: string) {
-    return api.post('/auth/login/verify', { phoneNumber, code, name })
+  joinCluster(userId: string, clusterId: string) {
+    return api.post(`/clusters/${clusterId}/join`, { userId });
   },
 
-  async refreshToken() {
-    return api.post('/auth/refresh')
+  getUserBalance(userId: string) {
+    return api.get(`/user/${userId}/balance`);
   },
 
-  async logout() {
-    return api.post('/auth/logout')
+  reportEnergy(deviceId: string, value_kWh: number, userId: string) {
+    return api.post("/device/report", { deviceId, value_kWh, userId });
   },
 
-  async getProfile() {
-    return api.get('/auth/me')
+  contribute(userId: string, clusterId: string, amount: number) {
+    return api.post("/contributions", { userId, clusterId, amount });
   },
 
-  // QR Authentication
-  async issueQrToken(type: 'signup' | 'payment', metadata?: any) {
-    return api.post('/auth/qr/issue', { type, metadata })
+  getContributionHistory(userId: string) {
+    return api.get(`/contributions/history/${userId}`);
   },
 
-  async redeemQrToken(qrToken: string, phoneNumber?: string, name?: string) {
-    return api.post('/auth/qr/redeem', { qrToken, phoneNumber, name })
+  getMarketplace(type?: string) {
+    return api.get("/marketplace", { params: { type } });
   },
 
-  // User management
-  async getUser(userId: string) {
-    return api.get(`/users/${userId}`)
+  getMap() {
+    return api.get("/map");
   },
 
-  async updateUser(userId: string, userData: Partial<any>) {
-    return api.put(`/users/${userId}`, userData)
+  getLedger() {
+    return api.get("/ledger");
   },
 
-  // Wallet operations
-  async getWallet(userId: string) {
-    return api.get(`/wallet/${userId}`)
+  //
+  // 🧩 STUBBED ENDPOINTS (frontend expects them but backend doesn’t have them)
+  //
+  startLogin() {
+    return stub({ success: true, token: "mvp-login" });
   },
 
-  async addFunds(userId: string, amount: number, currency: 'zmw' | 'kwh') {
-    return api.post('/wallet/add', { userId, amount, currency })
+  verifyLogin() {
+    return stub({ success: true, token: "mvp-login" });
   },
 
-  // Cluster operations
-  async getClusters() {
-    return api.get('/clusters')
+  getProfile() {
+    return stub({
+      userId: "USER1",
+      name: "MVP User",
+      role: "Prosumer",
+      balances: { money: 200, energy: 50 },
+    });
   },
 
-  async getCluster(clusterId: string) {
-    return api.get(`/clusters/${clusterId}`)
+  getUser(userId: string) {
+    return stub({ userId, name: "MVP User" });
   },
 
-  async createCluster(clusterData: any) {
-    return api.post('/clusters/create', clusterData)
+  getTransactions() {
+    return stub([]);
   },
 
-  async joinCluster(userId: string, clusterId: string, contribution: number) {
-    return api.post('/clusters/join', { userId, clusterId, contribution })
+  addFunds() {
+    return stub({ success: true });
   },
 
-  async getClustersByRegion(region: string) {
-    return api.get(`/clusters/region/${region}`)
+  executeBlockchainTrade() {
+    return stub({ success: true });
   },
 
-  async getClusterDashboard(clusterId: string) {
-    return api.get(`/clusters/${clusterId}/dashboard`)
+  executeMobileMoneyTrade() {
+    return stub({ success: true });
   },
 
-  async proposeEquipment(clusterId: string, proposalData: any) {
-    return api.post(`/clusters/${clusterId}/equipment/propose`, proposalData)
+  connectWallet() {
+    return stub({ connected: true });
   },
 
-  async voteOnProposal(clusterId: string, proposalId: string, vote: 'approve' | 'reject') {
-    return api.post(`/clusters/${clusterId}/vote`, { proposalId, vote })
+  getBlockchainBalance() {
+    return stub({ balance: 0 });
   },
 
-  async distributeEnergy(clusterId: string) {
-    return api.post(`/clusters/${clusterId}/energy/distribute`)
+  marketInsights() {
+    return stub({ insights: [] });
   },
 
-  async getClusterReturns(clusterId: string) {
-    return api.get(`/clusters/${clusterId}/returns`)
+  aiAssist() {
+    return stub({ response: "AI disabled for MVP" });
   },
+};
 
-  // Trading operations
-  async createTrade(tradeData: { buyerId: string; sellerId: string; kWh: number }) {
-    return api.post('/trade', tradeData)
-  },
-
-  async getTradeOffers(userId?: string) {
-    return api.get(`/trade/offers${userId ? `?userId=${userId}` : ''}`)
-  },
-
-  async createTradeOffer(offerData: {
-    fromUserId: string
-    energyAmount: number
-    pricePerKwh: number
-    tradeType: 'peer_to_peer' | 'cluster_to_user' | 'user_to_cluster'
-    toUserId?: string
-    fromUserName?: string
-    clusterName?: string
-    region?: string
-  }) {
-    return api.post('/trade/offers', offerData)
-  },
-
-  async acceptTrade(tradeId: string, userId: string) {
-    return api.post(`/trade/${tradeId}/accept`, { userId })
-  },
-
-  async bulkTrade(trades: any[]) {
-    return api.post('/trade/bulk/trade', { trades })
-  },
-
-  // Market data
-  async getMarketStats() {
-    return api.get('/market/stats')
-  },
-
-  async getPricing() {
-    return api.get('/pricing')
-  },
-
-  // Carbon tracking
-  async getCarbonFootprint(userId: string) {
-    return api.get(`/carbon/${userId}`)
-  },
-
-  // Transaction history
-  async getTransactions(userId: string) {
-    return api.get(`/transactions/${userId}`)
-  },
-
-  // Mobile money
-  async depositMobileMoney(userId: string, amount: number, provider: string, phone: string) {
-    return api.post('/mobilemoney/deposit', { userId, amount, provider, phone })
-  },
-
-  async withdrawMobileMoney(userId: string, amount: number, provider: string, phone: string) {
-    return api.post('/mobilemoney/withdraw', { userId, amount, provider, phone })
-  },
-
-  async getMobileMoneyLedger(userId: string) {
-    return api.get(`/mobilemoney/ledger/${userId}`)
-  },
-
-  // Price alerts
-  async subscribeToPriceAlert(userId: string, alertData: any) {
-    return api.post('/alerts/subscribe', { userId, ...alertData })
-  },
-
-  async getUserAlerts(userId: string) {
-    return api.get(`/alerts/user/${userId}`)
-  },
-
-  // Leaderboard
-  async getLeaderboard(clusterId?: string) {
-    return api.get(`/leaderboard${clusterId ? `?clusterId=${clusterId}` : ''}`)
-  },
-
-  // Blockchain operations
-  async connectWallet(walletAddress: string, userId: string) {
-    return api.post('/blockchain/connect', { walletAddress, userId })
-  },
-
-  async getBlockchainBalance(userId: string) {
-    return api.get(`/blockchain/balance/${userId}`)
-  },
-
-  // USSD operations
-  async processUssdRequest(sessionId: string, phoneNumber: string, text: string) {
-    return api.post('/ussd', { sessionId, phoneNumber, text })
-  },
-
-  // AI operations
-  async analyzeTransaction(transactionId: string) {
-    return api.post('/ai/analyze-transaction', { transactionId })
-  },
-
-  async marketInsights() {
-    return api.post('/ai/market-insights', {})
-  },
-
-  async aiAssist(userId: string, query: string, category?: string) {
-    return api.post('/ai/user-assistance', { userId, query, category })
-  },
-
-  // Hybrid Payment System
-  async executeHybridTrade(data: {
-    offerId: string
-    buyerId: string
-    phoneNumber: string
-    paymentMethod: 'hybrid'
-  }) {
-    return api.post('/blockchain/trade/execute', data)
-  },
-
-  async executeMobileMoneyTrade(data: {
-    offerId: string
-    buyerPhone: string
-    mobileMoneyReference: string
-  }) {
-    return api.post('/blockchain/trade/mobile-money', data)
-  },
-
-  async executeBlockchainTrade(data: {
-    offerId: string
-    buyerAddress: string
-  }) {
-    return api.post('/blockchain/trade/blockchain', data)
-  },
-
-  async getBlockchainStatus() {
-    return api.get('/blockchain/status')
-  },
-
-  async getBlockchainHealth() {
-    return api.get('/blockchain/health')
-  },
-
-  async syncBlockchainData() {
-    return api.post('/blockchain/sync')
-  }
-}
-
-export default api
+export default api;

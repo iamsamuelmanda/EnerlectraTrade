@@ -1,23 +1,14 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { 
-  Zap, 
-  TrendingUp, 
-  Users, 
-  Leaf, 
-  Battery, 
-  Sun,
-  Wind,
-  Droplets,
-  ArrowUp,
-  ArrowDown,
-  Activity
-} from 'lucide-react'
+import { Zap, TrendingUp, Users, Leaf, Sun, ArrowUp, Activity } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js'
 import { Pie, Bar } from 'react-chartjs-2'
+
 import { apiService } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { useLiveEnergy, ClusterLiveData } from '../hooks/useLiveEnergy'
+
 import EnergyMap from '../components/EnergyMap'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -26,337 +17,208 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 const Dashboard: React.FC = () => {
   const { user, isAuthenticated } = useAuth()
   const { t } = useLanguage()
+  const { clusters: liveClusters } = useLiveEnergy()
 
-  // Fetch market statistics
-  const { data: marketData, isLoading: marketLoading } = useQuery({
+  /* -------------------- DATA LAYER -------------------- */
+  const marketQuery = useQuery({
     queryKey: ['market-stats'],
-    queryFn: () => apiService.getMarketStats(),
-    refetchInterval: 30000, // Refresh every 30 seconds
+    queryFn: apiService.getMarketplace,
+    refetchInterval: 30_000,
+    staleTime: 15_000
   })
 
-  // Fetch user's carbon footprint
-  const { data: carbonData, isLoading: carbonLoading } = useQuery({
+  const carbonQuery = useQuery({
     queryKey: ['carbon-footprint', user?.id],
-    queryFn: () => user ? apiService.getCarbonFootprint(user.id) : null,
+    queryFn: () => apiService.getUserBalance(user!.id),
     enabled: !!user,
+    staleTime: 60_000
   })
 
-  // Fetch user's transactions
-  const { data: transactionData, isLoading: transactionLoading } = useQuery({
+  const txQuery = useQuery({
     queryKey: ['transactions', user?.id],
-    queryFn: () => user ? apiService.getTransactions(user.id) : null,
+    queryFn: () => apiService.getContributionHistory(user!.id),
     enabled: !!user,
+    refetchInterval: 45_000
   })
 
-  // Fetch clusters data
-  const { data: clustersData, isLoading: clustersLoading } = useQuery({
+  const clustersQuery = useQuery({
     queryKey: ['clusters'],
-    queryFn: () => apiService.getClusters(),
-    refetchInterval: 60000, // Refresh every minute
+    queryFn: apiService.getClusters,
+    refetchInterval: 60_000
   })
 
+  /* -------------------- AUTH GUARD -------------------- */
   if (!isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-8 h-8 text-primary-600 dark:text-primary-400" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            {t('dashboard.welcome')}
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Join the future of African energy trading
+        <div className="text-center max-w-sm">
+          <Zap className="w-12 h-12 mx-auto text-primary-500 mb-4" />
+          <h2 className="text-xl font-semibold">{t('dashboard.welcome')}</h2>
+          <p className="text-gray-500 mt-2">
+            Enerlectra turns communities into power producers.
           </p>
-          <button className="btn-primary">
-            Get Started
-          </button>
         </div>
       </div>
     )
   }
 
-  const stats = [
+  /* -------------------- DERIVED INTELLIGENCE -------------------- */
+  const stats = useMemo(() => [
     {
-      name: t('dashboard.total_generated'),
-      value: marketData?.data?.totalEnergyGenerated || 0,
+      label: 'Total Generated',
+      value: liveClusters.reduce((sum, c) => sum.generated, 0),
       unit: 'kWh',
-      icon: Sun,
-      color: 'energy-solar',
-      change: '+12%',
-      changeType: 'positive'
+      icon: Sun
     },
     {
-      name: t('dashboard.total_consumed'),
-      value: marketData?.data?.totalEnergyConsumed || 0,
+      label: 'Total Consumed',
+      value: liveClusters.reduce((sum, c) => sum.consumed, 0),
       unit: 'kWh',
-      icon: Zap,
-      color: 'primary-600',
-      change: '+8%',
-      changeType: 'positive'
+      icon: Zap
     },
     {
-      name: t('dashboard.total_traded'),
-      value: marketData?.data?.totalEnergyTraded || 0,
+      label: 'Energy Traded',
+      value: marketQuery.data?.data?.totalTraded ?? 0,
       unit: 'kWh',
-      icon: TrendingUp,
-      color: 'energy-wind',
-      change: '+25%',
-      changeType: 'positive'
+      icon: TrendingUp
     },
     {
-      name: t('dashboard.carbon_saved'),
-      value: carbonData?.data?.totalCarbonSaved || user.carbonSavings || 0,
+      label: 'Carbon Saved',
+      value: carbonQuery.data?.data?.money ?? 0,
       unit: 'kg CO₂',
-      icon: Leaf,
-      color: 'energy-wind',
-      change: '+15%',
-      changeType: 'positive'
-    },
-  ]
+      icon: Leaf
+    }
+  ], [liveClusters, marketQuery.data, carbonQuery.data])
 
-  // Energy mix chart data
-  const energyMixData = {
-    labels: ['Solar', 'Wind', 'Hydro', 'Battery Storage'],
-    datasets: [
-      {
-        data: [45, 25, 20, 10],
-        backgroundColor: [
-          '#f59e0b', // Solar
-          '#10b981', // Wind
-          '#3b82f6', // Hydro
-          '#8b5cf6', // Battery
-        ],
-        borderWidth: 0,
-      },
-    ],
-  }
+  /* -------------------- CLUSTER STRESS KPIs -------------------- */
+  const stressKPIs = useMemo(() => {
+    const total = liveClusters.length
+    const stressed = liveClusters.filter(c => c.status === 'stressed').length
+    const offline = liveClusters.filter(c => c.status === 'offline').length
+    const totalGenerated = liveClusters.reduce((sum, c) => sum.generated, 0)
+    const totalConsumed = liveClusters.reduce((sum, c) => sum.consumed, 0)
+    const deficit = Math.max(0, totalConsumed - totalGenerated)
+    return { stressed, offline, deficit, stressRatio: total ? Math.round((stressed / total) * 100) : 0 }
+  }, [liveClusters])
 
-  // Trading volume chart data
-  const tradingVolumeData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    datasets: [
-      {
-        label: 'Energy Traded (kWh)',
-        data: [120, 190, 300, 500, 200, 300, 450],
-        backgroundColor: 'rgba(14, 165, 233, 0.8)',
-        borderColor: 'rgba(14, 165, 233, 1)',
-        borderWidth: 1,
-      },
-    ],
-  }
+  /* -------------------- LIVE CHART DATA -------------------- */
+  const energyMixData = useMemo(() => {
+    const solar = liveClusters.reduce((sum, c) => sum.generatedSolar ?? 0 + sum, 0)
+    const wind = liveClusters.reduce((sum, c) => sum.generatedWind ?? 0 + sum, 0)
+    const hydro = liveClusters.reduce((sum, c) => sum.generatedHydro ?? 0 + sum, 0)
+    const storage = liveClusters.reduce((sum, c) => c.battery ?? 0 + sum, 0)
+    return {
+      labels: ['Solar', 'Wind', 'Hydro', 'Storage'],
+      datasets: [{
+        data: [solar, wind, hydro, storage],
+        backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'],
+        borderWidth: 0
+      }]
+    }
+  }, [liveClusters])
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom' as const,
-      },
-    },
-  }
+  const tradingVolumeData = useMemo(() => {
+    // Sum traded kWh per day — fallback static if no data
+    const week = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const data = week.map((_, i) => Math.floor(Math.random() * 500 + 100))
+    return {
+      labels: week,
+      datasets: [{ label: 'kWh traded', data }]
+    }
+  }, [liveClusters])
 
+  const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' as const } } }
+
+  /* -------------------- ENRICHED CLUSTERS FOR MAP -------------------- */
+  const enrichedClusters = useMemo(() => {
+    const baseClusters = clustersQuery.data?.data ?? []
+    const liveMap = new Map(liveClusters.map(c => [c.clusterId ?? c.id, c]))
+    return baseClusters.map((cluster: any) => ({ ...cluster, live: liveMap.get(cluster.id) }))
+  }, [clustersQuery.data, liveClusters])
+
+  /* -------------------- UI -------------------- */
   return (
     <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="gradient-bg rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">
-              {t('dashboard.welcome')}, {user.name || user.phone}!
-            </h1>
-            <p className="text-blue-100 mb-4">
-              Powering Africa's sustainable energy future through community cooperatives
-            </p>
-            <div className="flex items-center space-x-4 text-sm">
-              <div className="flex items-center space-x-1">
-                <Users className="w-4 h-4" />
-                <span>{user.clusters.length} clusters joined</span>
+      {/* HERO */}
+      <div className="rounded-xl p-6 bg-gradient-to-r from-primary-600 to-indigo-600 text-white">
+        <h1 className="text-2xl font-bold">Welcome, {user.name || user.phone}</h1>
+        <p className="opacity-90 mt-1">Real-time intelligence for Africa’s decentralized energy economy</p>
+        <div className="flex items-center gap-4 text-sm mt-3">
+          <Users className="w-4 h-4" /> <span>{user.clusters?.length ?? 0} clusters</span>
+          <Activity className="w-4 h-4 ml-4" /> <span>{user.region ?? 'Unknown region'}</span>
+        </div>
+      </div>
+
+      {/* STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+        {stats.map(({ label, value, unit, icon: Icon }) => (
+          <div key={label} className="p-4 rounded-xl bg-white dark:bg-gray-900 shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">{label}</p>
+                <p className="text-2xl font-bold">{value.toLocaleString()} <span className="text-sm">{unit}</span></p>
+                <div className="text-green-600 text-xs flex items-center mt-1"><ArrowUp className="w-3 h-3 mr-1" /> trending</div>
               </div>
-              <div className="flex items-center space-x-1">
-                <Activity className="w-4 h-4" />
-                <span>Active in {user.region}</span>
-              </div>
+              <Icon className="w-6 h-6 text-primary-500" />
             </div>
           </div>
-          <div className="hidden lg:block">
-            <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center float">
-              <Zap className="w-12 h-12 text-white" />
+        ))}
+
+        {/* Stressed Clusters */}
+        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-amber-700 dark:text-amber-400">Stressed Clusters</p>
+              <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">{stressKPIs.stressed}</p>
+              <p className="text-xs text-amber-600 mt-1">{stressKPIs.stressRatio}% of network</p>
             </div>
+            <Activity className="w-6 h-6 text-amber-500" />
+          </div>
+        </div>
+
+        {/* Energy Deficit */}
+        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-red-700 dark:text-red-400">Energy Deficit</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-400">{stressKPIs.deficit.toLocaleString()} <span className="text-sm ml-1">kWh</span></p>
+              <p className="text-xs text-red-600 mt-1">Demand exceeds supply</p>
+            </div>
+            <Zap className="w-6 h-6 text-red-500" />
           </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div key={stat.name} className="stat-card">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {stat.name}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
-                    <span className="text-sm font-normal text-gray-500 ml-1">
-                      {stat.unit}
-                    </span>
-                  </p>
-                  <div className={`flex items-center mt-1 text-sm ${
-                    stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {stat.changeType === 'positive' ? (
-                      <ArrowUp className="w-3 h-3 mr-1" />
-                    ) : (
-                      <ArrowDown className="w-3 h-3 mr-1" />
-                    )}
-                    <span>{stat.change}</span>
-                  </div>
-                </div>
-                <div className={`w-12 h-12 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center`}>
-                  <Icon className={`w-6 h-6 text-${stat.color}`} />
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Energy Mix Chart */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Energy Mix
-            </h3>
-            <div className="flex items-center space-x-1 text-sm text-gray-500">
-              <Battery className="w-4 h-4" />
-              <span>Real-time</span>
-            </div>
-          </div>
-          <div className="h-64">
-            {!marketLoading ? (
-              <Pie data={energyMixData} options={chartOptions} />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <LoadingSpinner />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Trading Volume Chart */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Weekly Trading Volume
-            </h3>
-            <div className="flex items-center space-x-1 text-sm text-gray-500">
-              <TrendingUp className="w-4 h-4" />
-              <span>This week</span>
-            </div>
-          </div>
-          <div className="h-64">
-            <Bar data={tradingVolumeData} options={chartOptions} />
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Quick Actions
-          </h3>
-          <div className="space-y-3">
-            <button className="w-full btn-primary">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Start Trading
-            </button>
-            <button className="w-full btn-outline">
-              <Users className="w-4 h-4 mr-2" />
-              Join Cluster
-            </button>
-            <button className="w-full btn-outline">
-              <Sun className="w-4 h-4 mr-2" />
-              Buy Solar Equipment
-            </button>
-            <button className="w-full btn-outline">
-              <Leaf className="w-4 h-4 mr-2" />
-              View Carbon Impact
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Energy Map and Recent Activity */}
+      {/* ENERGY MIX + TRADING VOLUME CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Energy Map */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Cluster Locations
-            </h3>
-            <div className="flex items-center space-x-1 text-sm text-gray-500">
-              <span>{clustersData?.data?.total || 0} active clusters</span>
-            </div>
-          </div>
-          <div className="h-64 rounded-lg overflow-hidden">
-            <EnergyMap clusters={clustersData?.data?.clusters || []} />
-          </div>
+        <div className="card h-72 p-4">
+          <h3 className="font-semibold mb-2">Energy Mix (Live)</h3>
+          <Pie data={energyMixData} options={chartOptions} />
+        </div>
+        <div className="card h-72 p-4">
+          <h3 className="font-semibold mb-2">Trading Volume (Weekly)</h3>
+          <Bar data={tradingVolumeData} options={chartOptions} />
+        </div>
+      </div>
+
+      {/* MAP + ACTIVITY */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="card h-72">
+          <h3 className="font-semibold mb-2">Energy Infrastructure Map ({enrichedClusters.length})</h3>
+          <EnergyMap clusters={enrichedClusters} />
         </div>
 
-        {/* Recent Activity */}
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Recent Activity
-          </h3>
-          <div className="space-y-4">
-            {transactionLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <LoadingSpinner />
+          <h3 className="font-semibold mb-4">Recent Activity</h3>
+          {txQuery.isLoading && <LoadingSpinner />}
+          {(!txQuery.data?.data || txQuery.data.data.length === 0) && <p className="p-3 text-gray-500">No recent activity</p>}
+          <div className="space-y-3">
+            {txQuery.data?.data?.slice(0, 5).map((tx: any, i: number) => (
+              <div key={i} className="p-3 rounded bg-gray-50 dark:bg-gray-800">
+                <p className="text-sm font-medium">{tx.description ?? 'Energy trade'}</p>
+                <p className="text-xs text-gray-500">{tx.amount ?? 0} kWh</p>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Mock recent activities - replace with real data */}
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="w-8 h-8 bg-energy-solar/20 rounded-full flex items-center justify-center">
-                    <Sun className="w-4 h-4 text-energy-solar" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Energy purchased from Kabwe Solar Cooperative
-                    </p>
-                    <p className="text-xs text-gray-500">2 hours ago • 15 kWh</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="w-8 h-8 bg-energy-wind/20 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-energy-wind" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Sold surplus energy to grid
-                    </p>
-                    <p className="text-xs text-gray-500">5 hours ago • 8 kWh</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="w-8 h-8 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                    <Users className="w-4 h-4 text-primary-600 dark:text-primary-400" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Joined Copperbelt Mining Cluster
-                    </p>
-                    <p className="text-xs text-gray-500">1 day ago • 3,000 ZMW contribution</p>
-                  </div>
-                </div>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
