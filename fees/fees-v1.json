@@ -1,0 +1,20 @@
+{
+    "version": "1.0",
+    "effectiveDate": "2025-12-16",
+    "description": "Enerlectra demo fee schedule for Kabwe Central Solar Cooperative.",
+    "items": [
+      {
+        "code": "LEDGER_WRITE",
+        "label": "Ledger write fee per contribution",
+        "amountZMW": 0,
+        "notes": "No fee charged during v0.1.0-demo."
+      },
+      {
+        "code": "SURPLUS_DISTRIBUTION",
+        "label": "Fee on distributed surplus",
+        "ratePct": 0,
+        "notes": "No fee charged during v0.1.0-demo."
+      }
+    ]
+  }
+  
