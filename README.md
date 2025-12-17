@@ -19,6 +19,15 @@ The following behaviors of the Enerlectra core are considered **frozen** in this
 
 Any future changes must not silently change these behaviors without a new version and tag.
 
+## Pilot documentation
+
+The Kabwe pilot is defined in the `/pilot` folder:
+
+- `pilot-brief.md` – scope and purpose  
+- `pilot-metrics.md` – success metrics and go/no-go criteria  
+- `pilot-regulatory.md` – ERB-safe regulatory narrative
+
+
 ## Fees
 
 The Kabwe demo uses the fee schedule defined in `fees/fees-v1.json`.  
